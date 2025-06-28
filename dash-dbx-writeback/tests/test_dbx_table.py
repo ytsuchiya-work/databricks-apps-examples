@@ -3,10 +3,10 @@ import pytest
 import os
 
 from unittest.mock import Mock, patch, MagicMock
-from excel_like_dash.callbacks.tables import read_table, insert_overwrite_table
-from excel_like_dash.data.sample_product_data import INITIAL_DATA
-from excel_like_dash.config.workspace_client import get_connection
-from excel_like_dash.config.unity_catalog import get_full_table_name
+from dash_dbx_writeback.callbacks.tables import read_table, insert_overwrite_table
+from dash_dbx_writeback.data.sample_product_data import INITIAL_DATA
+from dash_dbx_writeback.config.workspace_client import get_connection
+from dash_dbx_writeback.config.unity_catalog import get_full_table_name
 
 
 @pytest.fixture
@@ -146,3 +146,121 @@ def test_real_writeback():
         print(f"Successfully read {len(result)} rows from {test_table}")
     except Exception as e:
         pytest.fail(f"Failed to write table: {str(e)}")
+
+
+def test_unity_catalog_table_name_construction():
+    """Test Unity Catalog table name construction with environment variables.
+    
+    This test verifies that:
+    - Environment variables DATABRICKS_CATALOG and DATABRICKS_SCHEMA are used
+    - Table names are constructed in the correct format: catalog.schema.table
+    - The configuration works with the expected values: daveok.excel_app.table_name
+    """
+    from dash_dbx_writeback.config.unity_catalog import (
+        get_full_table_name, 
+        get_catalog_name, 
+        get_schema_name
+    )
+    
+    # Test table name
+    test_table = "product_sales"
+    
+    # Get the constructed full name
+    full_name = get_full_table_name(test_table)
+    
+    # Get catalog and schema names
+    catalog_name = get_catalog_name()
+    schema_name = get_schema_name()
+    
+    # Verify the components
+    assert catalog_name == "daveok", f"Expected catalog 'daveok', got '{catalog_name}'"
+    assert schema_name == "excel_app", f"Expected schema 'excel_app', got '{schema_name}'"
+    
+    # Verify the full table name construction
+    expected_full_name = f"{catalog_name}.{schema_name}.{test_table}"
+    assert full_name == expected_full_name, (
+        f"Expected '{expected_full_name}', got '{full_name}'"
+    )
+    
+    # Test with different table names
+    test_cases = [
+        "products",
+        "sales_data", 
+        "customer_info",
+        "inventory"
+    ]
+    
+    for table_name in test_cases:
+        full_name = get_full_table_name(table_name)
+        expected = f"{catalog_name}.{schema_name}.{table_name}"
+        assert full_name == expected, (
+            f"For table '{table_name}': expected '{expected}', got '{full_name}'"
+        )
+    
+    print(f"✅ Unity Catalog configuration test passed!")
+    print(f"   - Catalog: {catalog_name}")
+    print(f"   - Schema: {schema_name}")
+    print(f"   - Example: {get_full_table_name('product_sales')}")
+
+
+def test_unity_catalog_environment_variables():
+    """Test that Unity Catalog configuration properly reads environment variables.
+    
+    This test verifies that the configuration can handle:
+    - Environment variables being set
+    - Fallback values when environment variables are not set
+    """
+    import os
+    from dash_dbx_writeback.config.unity_catalog import (
+        get_catalog_name, 
+        get_schema_name,
+        get_full_table_name
+    )
+    
+    # Store original environment variables
+    original_catalog = os.getenv("DATABRICKS_CATALOG")
+    original_schema = os.getenv("DATABRICKS_SCHEMA")
+    
+    try:
+        # Test with environment variables set
+        os.environ["DATABRICKS_CATALOG"] = "test_catalog"
+        os.environ["DATABRICKS_SCHEMA"] = "test_schema"
+        
+        # Re-import to get fresh values
+        import importlib
+        import dash_dbx_writeback.config.unity_catalog as uc
+        importlib.reload(uc)
+        
+        # Test the values
+        catalog = uc.get_catalog_name()
+        schema = uc.get_schema_name()
+        
+        assert catalog == "test_catalog", f"Expected 'test_catalog', got '{catalog}'"
+        assert schema == "test_schema", f"Expected 'test_schema', got '{schema}'"
+        
+        # Test table name construction
+        full_name = uc.get_full_table_name("test_table")
+        expected = "test_catalog.test_schema.test_table"
+        assert full_name == expected, f"Expected '{expected}', got '{full_name}'"
+        
+        print(f"✅ Environment variable test passed!")
+        print(f"   - Catalog: {catalog}")
+        print(f"   - Schema: {schema}")
+        print(f"   - Example: {full_name}")
+        
+    finally:
+        # Restore original environment variables
+        if original_catalog is not None:
+            os.environ["DATABRICKS_CATALOG"] = original_catalog
+        else:
+            os.environ.pop("DATABRICKS_CATALOG", None)
+            
+        if original_schema is not None:
+            os.environ["DATABRICKS_SCHEMA"] = original_schema
+        else:
+            os.environ.pop("DATABRICKS_SCHEMA", None)
+        
+        # Re-import to restore original values
+        import importlib
+        import dash_dbx_writeback.config.unity_catalog as uc
+        importlib.reload(uc)

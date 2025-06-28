@@ -3,8 +3,8 @@ import pytest
 from pathlib import Path
 from dotenv import load_dotenv
 
-from excel_like_dash.config.workspace_client import get_connection
-from excel_like_dash.data.sample_product_data import (
+from dash_dbx_writeback.config.workspace_client import get_connection
+from dash_dbx_writeback.data.sample_product_data import (
     generate_product_data,
 )
 
@@ -34,7 +34,7 @@ def conn():
 
 @pytest.fixture(scope="session")
 def test_table_name():
-    return "daveok.dash_dbx_writeback.pytest_read"
+    return "daveok.excel_app.pytest_read"
 
 
 @pytest.fixture(scope="session")

@@ -338,6 +338,110 @@ class SalesDataGenerator:
         
         return holiday_indicator
     
+    def _calculate_daily_sales(
+        self,
+        base_sales: float,
+        profile: Dict[str, Any],
+        category: str,
+        date: pd.Timestamp,
+        day_index: int,
+        total_days: int,
+        store_config: Dict[str, Any]
+    ) -> float:
+        """Calculate daily sales with realistic patterns and seasonality."""
+        
+        # Base sales with trend
+        trend_factor = 1 + (profile["trend"] * day_index / 365)  # Annual trend
+        sales = base_sales * trend_factor
+        
+        # Weekly pattern
+        day_of_week = date.dayofweek  # 0=Monday, 6=Sunday
+        weekly_pattern = profile["weekly_pattern"]
+        
+        if weekly_pattern == "weekend_boost":
+            if day_of_week >= 5:  # Weekend
+                sales *= 1.3
+            elif day_of_week == 4:  # Friday
+                sales *= 1.1
+        elif weekly_pattern == "business_district":
+            if day_of_week < 5:  # Weekday
+                sales *= 1.2
+            else:  # Weekend
+                sales *= 0.7
+        elif weekly_pattern == "shopping_district":
+            if day_of_week >= 5:  # Weekend
+                sales *= 1.4
+            elif day_of_week == 4:  # Friday
+                sales *= 1.2
+        elif weekly_pattern == "suburban":
+            if day_of_week >= 5:  # Weekend
+                sales *= 1.2
+            elif day_of_week == 0:  # Monday
+                sales *= 0.9
+        
+        # Seasonal patterns
+        month = date.month
+        seasonality = profile["seasonality"]
+        
+        if seasonality == "high" or seasonality == "very_high":
+            # Summer (Dec-Feb in Australia)
+            if month in [12, 1, 2]:
+                if category == "Confectionery":
+                    sales *= 0.8  # Less chocolate in summer
+                elif category == "Dairy":
+                    sales *= 1.15  # More dairy in summer
+            # Winter (Jun-Aug)
+            elif month in [6, 7, 8]:
+                if category == "Confectionery":
+                    sales *= 1.2  # More chocolate in winter
+                elif category == "Dairy":
+                    sales *= 0.95
+            # Spring (Sep-Nov)
+            elif month in [9, 10, 11]:
+                if category == "Bakery":
+                    sales *= 1.1  # Spring baking
+            # Autumn (Mar-May)
+            elif month in [3, 4, 5]:
+                if category == "Pantry":
+                    sales *= 1.05  # Comfort food
+        
+        # Holiday effects
+        holiday_multiplier = 1.0
+        for holiday, period in self.holidays.items():
+            holiday_start = pd.to_datetime(period["start"])
+            holiday_end = pd.to_datetime(period["end"])
+            holiday_peak = pd.to_datetime(period["peak"])
+            
+            if holiday_start <= date <= holiday_end:
+                # Calculate distance from peak
+                days_from_peak = abs((date - holiday_peak).days)
+                if days_from_peak <= 3:  # Peak period
+                    holiday_multiplier = self.seasonal_patterns[category][holiday]
+                else:  # Build-up or wind-down
+                    holiday_multiplier = 1 + (self.seasonal_patterns[category][holiday] - 1) * 0.5
+                break
+        
+        sales *= holiday_multiplier
+        
+        # Store-specific adjustments
+        if store_config["weekly_pattern"] == "business_district" and day_of_week >= 5:
+            sales *= 0.6  # Business district stores have lower weekend sales
+        elif store_config["weekly_pattern"] == "shopping_district" and day_of_week < 5:
+            sales *= 0.8  # Shopping district stores have lower weekday sales
+        
+        # Add realistic noise
+        volatility = profile["volatility"]
+        noise = self.rng.normal(0, volatility)
+        sales *= (1 + noise)
+        
+        # Ensure non-negative sales
+        sales = max(0, sales)
+        
+        # Round to realistic whole numbers
+        sales = round(sales)
+        
+        return sales
+    
     def prepare_for_modeling(
         self,
         df: pd.DataFrame,
