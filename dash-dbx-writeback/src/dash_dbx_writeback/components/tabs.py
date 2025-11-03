@@ -2,8 +2,8 @@ from typing import List, Union
 
 import dash_mantine_components as dmc
 from dash import Input, Output, html, callback, State, callback_context
-from ..config.workspace_client import get_connection
-from ..config.unity_catalog import get_full_table_name
+from ..database_operations import get_connection
+from ..config import db_config
 
 tabs = html.Div(
     [

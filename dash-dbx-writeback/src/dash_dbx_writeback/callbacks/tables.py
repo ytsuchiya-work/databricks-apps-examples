@@ -1,12 +1,11 @@
 import pandas as pd
 import datetime
-
-from databricks import sql
 from functools import lru_cache
 from typing import List, Dict, Union, Tuple, Any
 
-from ..data.sample_product_data import INITIAL_DATA
-from ..config.unity_catalog import get_full_table_name
+from ..sample_data import INITIAL_DATA
+from ..config import db_config
+from ..database_operations import query_df, bulk_insert, check_table_exists
 
 
 def log(message: str) -> None:
@@ -22,7 +21,7 @@ def initialize_table(table_name: str, conn: Any) -> Union[int, Tuple[str, int]]:
 
     Args:
         table_name: Name of the table to initialize
-        conn: Databricks connection
+        conn: PostgreSQL connection
 
     Returns:
         Union[int, Tuple[str, int]]: Row count or error tuple
@@ -31,7 +30,7 @@ def initialize_table(table_name: str, conn: Any) -> Union[int, Tuple[str, int]]:
     df = pd.DataFrame(INITIAL_DATA)
     log(f"→ initialize_table: Created DataFrame with {len(df)} rows")
 
-    full_table_name = get_full_table_name(table_name)
+    full_table_name = db_config.get_full_table_name(table_name)
     log(f"→ initialize_table: Full table name: {full_table_name}")
 
     result = insert_overwrite_table(
@@ -43,22 +42,37 @@ def initialize_table(table_name: str, conn: Any) -> Union[int, Tuple[str, int]]:
 
 
 def read_table(table_name: str, query: str, conn: Any) -> pd.DataFrame:
+    """
+    Read data from a PostgreSQL table into a DataFrame.
+
+    Args:
+        table_name: Name of the table (not used directly, kept for API compatibility)
+        query: SQL query to execute
+        conn: PostgreSQL connection
+
+    Returns:
+        pd.DataFrame: Query results as a DataFrame
+    """
     log(f"→ read_table: Reading from '{table_name}'")
     log(f"→ read_table: Query: {query}")
-    with conn.cursor() as cursor:
-        cursor.execute(query)
-        result = cursor.fetchall_arrow().to_pandas()
+    
+    try:
+        # Use pandas read_sql for PostgreSQL
+        result = pd.read_sql(query, conn)
         log(f"→ read_table: Retrieved {len(result)} rows")
         return result
+    except Exception as e:
+        log(f"✗ read_table: Error reading table: {e}")
+        raise
 
 
 def check_table_exists(table_name: str, conn: Any) -> bool:
     """
-    Check if a table exists in the catalog.
+    Check if a table exists in the database.
 
     Args:
-        table_name: Name of the target table (format: catalog.schema.table)
-        conn: Databricks connection
+        table_name: Name of the target table (format: schema.table or just table)
+        conn: PostgreSQL connection
 
     Returns:
         bool: True if table exists, False otherwise
@@ -67,23 +81,26 @@ def check_table_exists(table_name: str, conn: Any) -> bool:
 
     # Parse the table name
     parts = table_name.split(".")
-    if len(parts) != 3:
-        raise ValueError("Table name must be in format: catalog.schema.table")
-    catalog_name, schema_name, table_name = parts
-    log(
-        f"→ check_table_exists: Catalog: {catalog_name}, Schema: {schema_name}, Table: {table_name}"
-    )
+    if len(parts) == 2:
+        schema_name, table_name_only = parts
+    elif len(parts) == 1:
+        schema_name = "public"
+        table_name_only = parts[0]
+    else:
+        raise ValueError("Table name must be in format: schema.table or table")
+    
+    log(f"→ check_table_exists: Schema: {schema_name}, Table: {table_name_only}")
 
     with conn.cursor() as cursor:
-        # Check if table exists
-        check_query = f"""
+        # Check if table exists using PostgreSQL information_schema
+        check_query = """
         SELECT 1 
-        FROM {catalog_name}.information_schema.tables 
-        WHERE table_schema = '{schema_name}' 
-        AND table_name = '{table_name}'
+        FROM information_schema.tables 
+        WHERE table_schema = %s
+        AND table_name = %s
         """
         log(f"→ check_table_exists: Executing query")
-        cursor.execute(check_query)
+        cursor.execute(check_query, (schema_name, table_name_only))
         exists = cursor.fetchone() is not None
         log(f"→ check_table_exists: Table exists: {exists}")
         return exists
@@ -94,44 +111,40 @@ def create_table(table_name: str, df: pd.DataFrame, conn: Any) -> Any:
     Create a table with schema based on DataFrame columns.
 
     Args:
-        table_name: Name of the target table (format: catalog.schema.table)
+        table_name: Name of the target table (format: schema.table or just table)
         df: DataFrame containing the data to determine schema
-        conn: Databricks connection
+        conn: PostgreSQL connection
     """
     log(f"→ create_table: Creating table '{table_name}'")
-
-    # Parse the table name
-    parts = table_name.split(".")
-    if len(parts) != 3:
-        raise ValueError("Table name must be in format: catalog.schema.table")
-    catalog_name, schema_name, table_name = parts
 
     with conn.cursor() as cursor:
         # Get column names and types from DataFrame
         columns = []
         for col, dtype in df.dtypes.items():
-            # Map pandas dtypes to SQL types
+            # Map pandas dtypes to PostgreSQL types
             if dtype == "int64":
                 sql_type = "BIGINT"
             elif dtype == "float64":
-                sql_type = "DOUBLE"
+                sql_type = "DOUBLE PRECISION"
             elif dtype == "bool":
                 sql_type = "BOOLEAN"
+            elif dtype == "datetime64[ns]":
+                sql_type = "TIMESTAMP"
             else:
-                sql_type = "STRING"
-            columns.append(f"`{col}` {sql_type}")
+                sql_type = "TEXT"
+            columns.append(f'"{col}" {sql_type}')
             log(f"→ create_table: Column '{col}' -> {sql_type}")
 
         # Create table with proper schema
         create_query = f"""
-        CREATE TABLE IF NOT EXISTS {catalog_name}.{schema_name}.{table_name} (
+        CREATE TABLE IF NOT EXISTS {table_name} (
             {', '.join(columns)}
         )
         """
         log(f"→ create_table: Executing CREATE TABLE query")
-        result = cursor.execute(create_query)
+        cursor.execute(create_query)
+        conn.commit()
         log(f"→ create_table: Table created successfully")
-        return result
 
 
 def ensure_table_exists(table_name: str, df: pd.DataFrame, conn: Any) -> bool:
@@ -139,9 +152,9 @@ def ensure_table_exists(table_name: str, df: pd.DataFrame, conn: Any) -> bool:
     Check if table exists and create it if it doesn't.
 
     Args:
-        table_name: Name of the target table (format: catalog.schema.table)
+        table_name: Name of the target table (format: schema.table or just table)
         df: DataFrame containing the data to write
-        conn: Databricks connection
+        conn: PostgreSQL connection
 
     Returns:
         bool: True if table already existed, False if it was created
@@ -162,16 +175,16 @@ def insert_overwrite_table(
     table_name: str, df: pd.DataFrame, conn: Any, overwrite: bool = True
 ) -> Union[int, Tuple[str, int]]:
     """
-    Insert or overwrite data in a Databricks table.
+    Insert or overwrite data in a PostgreSQL table.
 
     Args:
-        table_name: Name of the target table (format: catalog.schema.table)
+        table_name: Name of the target table (format: schema.table or just table)
         df: DataFrame containing the data to write
-        conn: Databricks connection
+        conn: PostgreSQL connection
         overwrite: Whether to overwrite existing data (True) or append (False)
 
     Returns:
-        tuple: (message: str, rowcount: int)
+        int: Number of rows inserted, or tuple (error_message, 0) on error
     """
     log(f"→ insert_overwrite_table: Starting insert to '{table_name}'")
     log(f"→ insert_overwrite_table: DataFrame shape: {df.shape}")
@@ -182,57 +195,35 @@ def insert_overwrite_table(
         ensure_table_exists(table_name, df, conn)
 
         with conn.cursor() as cursor:
-            # Convert DataFrame to list of dictionaries for better NULL handling
-            records = df.replace({pd.NA: None}).to_dict("records")
-            log(f"→ insert_overwrite_table: Processing {len(records)} records")
+            # Convert DataFrame to list of tuples for insertion
+            records = df.replace({pd.NA: None}).to_records(index=False)
+            data = [tuple(row) for row in records]
+            log(f"→ insert_overwrite_table: Processing {len(data)} records")
 
             # Get column names
             columns = df.columns.tolist()
-            columns_str = ", ".join([f"`{col}`" for col in columns])
-
-            # Build the INSERT statement
-            values_clauses = []
-            for i, record in enumerate(records):
-                # Handle each value, converting None to NULL
-                values = []
-                for col in columns:
-                    val = record[col]
-                    if val is None:
-                        values.append("NULL")
-                    elif isinstance(val, (int, float)):
-                        values.append(str(val))
-                    elif isinstance(val, bool):
-                        values.append(str(val).upper())
-                    else:
-                        # Escape single quotes and wrap in quotes
-                        escaped_val = str(val).replace("'", "''")
-                        values.append(f"'{escaped_val}'")
-                values_clauses.append(f"({', '.join(values)})")
-
-                if i == 0:
-                    log(
-                        f"→ insert_overwrite_table: Sample record values: {values[:5]}..."
-                    )
+            columns_str = ", ".join([f'"{col}"' for col in columns])
 
             if overwrite:
                 log(f"→ insert_overwrite_table: Truncating table before insert")
                 cursor.execute(f"TRUNCATE TABLE {table_name}")
+                conn.commit()
             else:
                 log(f"→ insert_overwrite_table: Appending to existing data")
 
-            # Combine all values into a single INSERT statement
-            insert_query = f"INSERT INTO {table_name} ({columns_str}) VALUES {', '.join(values_clauses)}"
-            log(
-                f"→ insert_overwrite_table: Executing INSERT with {len(values_clauses)} value clauses"
-            )
+            # Use execute_values for efficient bulk insert
+            insert_query = f"INSERT INTO {table_name} ({columns_str}) VALUES %s"
+            log(f"→ insert_overwrite_table: Executing bulk INSERT")
 
-            # Execute the query and verify success
-            cursor.execute(insert_query)
+            execute_values(cursor, insert_query, data)
+            conn.commit()
+            
             rowcount = cursor.rowcount
             log(f"→ insert_overwrite_table: Successfully inserted {rowcount} rows")
             return rowcount
 
     except Exception as e:
+        conn.rollback()
         error_msg = f"Failed to write table: {str(e)}"
         log(f"✗ insert_overwrite_table: {error_msg}")
         return error_msg, 0

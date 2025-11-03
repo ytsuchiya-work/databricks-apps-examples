@@ -10,8 +10,8 @@ import dash_ag_grid as dag
 import dash_mantine_components as dmc
 from dash import Input, Output, State, callback, clientside_callback, callback_context
 
-from ..config.unity_catalog import get_full_table_name
-from ..config.workspace_client import get_connection
+from ..database_operations import get_connection, return_connection
+from ..config import db_config
 from .tables import (
     insert_overwrite_table,
     read_table,
@@ -54,35 +54,31 @@ def initialize_store(
         return existing_data
 
     try:
-        conn = get_connection()
-        log("✓ Got database connection")
-
-        table_name = get_full_table_name("layout_data")
+        from ..database_operations import query_df, check_table_exists, bulk_insert
+        from ..sample_data import INITIAL_DATA
+        
+        table_name = db_config.get_full_table_name("layout_data")
         log(f"✓ Full table name: {table_name}")
 
-        # Check if table exists, create it if it doesn't
-        table_existed = check_table_exists(table_name, conn)
-        log(f"✓ Table initializing with sample data: {table_existed}")
+        # Check if table exists
+        table_exists = check_table_exists(table_name)
+        log(f"✓ Table exists: {table_exists}")
 
-        # If table didn't exist, initialize it with sample data
-        if not table_existed:
-            log(f"→ Table {table_name} didn't exist, initializing with sample data")
-            result = initialize_table("layout_data", conn)
+        # If table doesn't exist or is empty, initialize it with sample data
+        if not table_exists:
+            log(f"→ Table {table_name} doesn't exist, initializing with sample data")
+            import pandas as pd
+            df = pd.DataFrame(INITIAL_DATA)
+            result = bulk_insert(table_name, df, overwrite=False)
             log(f"✓ Initialize table result: {result}")
 
-        # Now read the data from the table
-        query = f"SELECT * FROM {table_name} LIMIT 1"
-        log(f"→ Executing query: {query}")
-        data = read_table(table_name, query, conn).to_dict("records")
-        log(f"✓ Read {len(data)} records from table")
-
-        log("✓ Successfully initialized from database")
+        # Return empty - the update_grid_by_category callback will load the data
+        log("✓ Successfully initialized, data will be loaded by category callback")
         return []
     except Exception as e:
         log(f"✗ Error initializing store: {type(e).__name__}: {e}")
         import traceback
-
-        traceback.print_exc()
+        log(f"✗ Full traceback: {traceback.format_exc()}")
 
         # If we have existing data in local storage and database fails, use it
         if existing_data:
@@ -155,7 +151,7 @@ def upload_data_to_uc(
         df["SUBMISSION_TIMESTAMP"] = timestamp
         df["ROW_ID"] = [f"{forecast_id}-{i+1:04d}" for i in range(len(df))]
 
-        table_name = get_full_table_name("forecast_submissions")
+        table_name = db_config.get_full_table_name("forecast_submissions")
         log(f"→ Writing to table: {table_name}")
 
         insert_overwrite_table(
@@ -263,24 +259,39 @@ def update_grid_by_category(
         return current_data
 
     try:
-        conn = get_connection()
-        table_name = get_full_table_name("layout_data")
-        conditions = []
+        from ..database_operations import query_df
+        
+        table_name = db_config.get_full_table_name("layout_data")
+        log(f"→ Table name: {table_name}")
+        
+        # Use parameterized query to prevent SQL injection
+        # Note: PostgreSQL column names are case-sensitive, columns are uppercase
         if selected_category != "All":
-            conditions.append(f"CATEGORY_NAME = '{selected_category}'")
-        where_clause = " AND ".join(conditions) if conditions else "1=1"
-        query = f"SELECT * FROM {table_name} WHERE {where_clause}"
-        log(f"→ Executing query: {query}")
+            query = f'SELECT * FROM {table_name} WHERE "CATEGORY_NAME" = %s'
+            params = (selected_category,)
+            log(f"→ Executing filtered query: {query}")
+            log(f"→ With params: {params}")
+            filtered = query_df(query, params)
+            log(f"→ Query returned {len(filtered)} rows")
+        else:
+            query = f"SELECT * FROM {table_name}"
+            log(f"→ Executing query for all categories: {query}")
+            filtered = query_df(query)
+            log(f"→ Query returned {len(filtered)} rows")
 
-        with conn.cursor() as cursor:
-            cursor.execute(query)
-            filtered = cursor.fetchall_arrow().to_pandas()
-
+        if filtered.empty:
+            log(f"⚠️  No data found for category: {selected_category}")
+            log(f"⚠️  Returning current data with {len(current_data)} records")
+            return current_data
+        
         result = filtered.to_dict("records")
-        log(f"✓ Filtered to {len(result)} records")
+        log(f"✓ Successfully filtered to {len(result)} records for category: {selected_category}")
         return result
     except Exception as e:
+        import traceback
         log(f"✗ Error filtering data: {e}")
+        log(f"✗ Traceback: {traceback.format_exc()}")
+        log(f"→ Returning current data with {len(current_data)} records")
         return current_data
 
 

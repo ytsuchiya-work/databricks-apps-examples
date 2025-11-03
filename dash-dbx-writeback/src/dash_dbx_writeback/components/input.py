@@ -5,14 +5,14 @@ import dash_mantine_components as dmc
 from dash import html, dcc, no_update, callback, clientside_callback, register_page
 
 from .tabs import tabs
-from ..data.sample_product_data import INITIAL_DATA
+from ..sample_data import INITIAL_DATA
 
 EDITABLE_FIELDS = [
     "SELL_ID",
     "LOYALTY_GROUP",
     "SEGMENT_1",
     "SEGMENT_2",
-    "CURRENT_ASSORTMENT",
+    "SHELF_SPACE_CM",
 ]
 
 COLUMN_DEFS = [
@@ -30,11 +30,6 @@ COLUMN_DEFS = [
     },
     {"field": "SEGMENT_1", "headerName": "Segment 1", "filter": "agTextColumnFilter"},
     {"field": "SEGMENT_2", "headerName": "Segment 2", "filter": "agTextColumnFilter"},
-    {
-        "field": "CURRENT_ASSORTMENT",
-        "headerName": "Current Assortment",
-        "filter": "agTextColumnFilter",
-    },
     {"field": "ORIGIN", "headerName": "Origin", "filter": "agTextColumnFilter"},
     {
         "field": "CATEGORY_NAME",
@@ -54,6 +49,12 @@ COLUMN_DEFS = [
     {"field": "SUPPLIER", "headerName": "Supplier", "filter": "agTextColumnFilter"},
     {"field": "BRAND", "headerName": "Brand", "filter": "agTextColumnFilter"},
     {"field": "PACK_SIZE", "headerName": "Pack Size", "filter": "agTextColumnFilter"},
+    {
+        "field": "SHELF_SPACE_CM",
+        "headerName": "Shelf Space (cm)",
+        "filter": "agNumberColumnFilter",
+        "type": "numericColumn",
+    },
 ]
 
 CSV_TO_GRID_COL_MAP = {
@@ -70,6 +71,7 @@ CSV_TO_GRID_COL_MAP = {
     "Supplier": "SUPPLIER",
     "Brand": "BRAND",
     "Pack Size": "PACK_SIZE",
+    "Shelf Space (cm)": "SHELF_SPACE_CM",
 }
 
 
@@ -199,7 +201,7 @@ def render_input_grid() -> html.Div:
     category_dropdown = dmc.Select(
         id="category-select",
         label="Pick your category",
-        data=["All", "Dairy", "Bakery", "Confectionery"],
+        data=["All", "Dairy", "Bakery", "Confectionery", "Pantry", "Meat"],
         searchable=True,
         value=None,
         w=400,

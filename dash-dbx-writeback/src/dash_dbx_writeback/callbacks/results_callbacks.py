@@ -5,8 +5,8 @@ import pandas as pd
 import dash_mantine_components as dmc
 from dash import Input, Output, callback
 
-from ..config.workspace_client import get_connection
-from ..config.unity_catalog import get_full_table_name
+from ..database_operations import get_connection, return_connection
+from ..config import db_config
 
 
 def log(message: str) -> None:
@@ -23,7 +23,7 @@ def populate_forecast_dropdown(_: str):
     log("CALLBACK: populate_forecast_dropdown")
     try:
         conn = get_connection()
-        table_name = get_full_table_name("forecast_submissions")
+        table_name = db_config.get_full_table_name("forecast_submissions")
         query = f"SELECT DISTINCT FORECAST_ID FROM {table_name} ORDER BY SUBMISSION_TIMESTAMP DESC LIMIT 50"
         with conn.cursor() as cursor:
             cursor.execute(query)
@@ -45,12 +45,16 @@ def load_forecast_results(forecast_id: str):
     if not forecast_id:
         return [], "Select a forecast run to view results."
     try:
-        conn = get_connection()
-        table_name = get_full_table_name("forecast_results")
-        query = f"SELECT * FROM {table_name} WHERE FORECAST_ID = '{forecast_id}'"
-        with conn.cursor() as cursor:
-            cursor.execute(query)
-            df = cursor.fetchall_arrow().to_pandas()
+        from ..database_operations import query_df
+        
+        table_name = db_config.get_full_table_name("forecast_results")
+        
+        # Use parameterized query to prevent SQL injection
+        # Note: PostgreSQL column names are case-sensitive, columns are uppercase
+        query = f'SELECT * FROM {table_name} WHERE "FORECAST_ID" = %s'
+        log(f"→ Executing query: {query} with params: ({forecast_id},)")
+        
+        df = query_df(query, (forecast_id,))
         data = df.to_dict("records")
         msg = dmc.Text(f"Loaded {len(data)} rows for forecast {forecast_id}")
         return data, msg

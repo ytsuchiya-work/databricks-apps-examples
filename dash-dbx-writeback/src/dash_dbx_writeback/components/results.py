@@ -4,8 +4,8 @@ import dash_ag_grid as dag
 import dash_mantine_components as dmc
 from dash import html, dcc
 
-from ..config.workspace_client import get_connection
-from ..config.unity_catalog import get_full_table_name
+from ..database_operations import get_connection
+from ..config import db_config
 
 # Placeholder column definitions. These will be dynamically generated once data is loaded.
 DEFAULT_COLUMN_DEFS: List[Dict[str, Any]] = [

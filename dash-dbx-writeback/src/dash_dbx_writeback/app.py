@@ -12,7 +12,7 @@ import dash_mantine_components as dmc
 from dash import Dash, Input, Output, State, callback, _dash_renderer, html
 from dash_iconify import DashIconify
 
-from .config.workspace_client import close_connection
+from .database_operations import close_all_connections
 
 
 def log(message: str) -> None:
@@ -32,6 +32,14 @@ _dash_renderer._set_react_version("18.2.0")
 log("=" * 60)
 log("INITIALIZING DASH APP")
 log("=" * 60)
+
+# Initialize database tables with sample data if empty
+try:
+    from .initialize_app import initialize_tables_on_startup
+    initialize_tables_on_startup()
+except Exception as e:
+    log(f"⚠️  Database initialization failed (will retry on first use): {e}")
+    # Don't fail app startup if DB isn't ready yet
 
 # Create the app instance FIRST
 app = Dash(
@@ -207,7 +215,7 @@ def toggle_navbar(
 
 
 # Register cleanup function to close connection on app shutdown
-atexit.register(close_connection)
+atexit.register(close_all_connections)
 
 
 if __name__ == "__main__":
@@ -218,5 +226,5 @@ if __name__ == "__main__":
         app.run(debug=True)
     finally:
         # Ensure connection is closed on shutdown
-        close_connection()
+        close_all_connections()
 

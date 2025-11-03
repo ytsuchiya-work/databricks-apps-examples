@@ -1,83 +1,171 @@
-# Writeback to Databricks with Dash AG-Grid 
+# Writeback Application with Dash AG-Grid and PostgreSQL
 
 Author: [David O'Keeffe](https://www.linkedin.com/in/dgokeeffe/)
 
-This is an example of reading and writing tables to Databricks using Dash AG-Grid, one of the most powerful Javascript libraries for Tabular visualization on the market.
+This is an example of reading and writing tables to a PostgreSQL database using Dash AG-Grid, one of the most powerful Javascript libraries for Tabular visualization on the market.
 
-It includes the ability to add validation steps and show warnings for duplicate keys and missing inputs, and disable submitting the table if the validations aren't acceptable. It is a common use case that is asked for by Databricks customers, who essentially want that "Microsoft Excel" like experience for their users to do things in Databricks, like submit a request for a forecast.
+It includes the ability to add validation steps and show warnings for duplicate keys and missing inputs, and disable submitting the table if the validations aren't acceptable. It provides an "Microsoft Excel" like experience for users to do things like submit a request for a forecast.
 
-It's also one of the most complete examples we have for building sophisticated multi-page apps using the latest libraries in the Python and Databricks ecosystem. This includes tools like `uv`, `pytest` (for TDD and automated unit tests), and [Databricks Asset Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/).
+It's a complete example for building sophisticated multi-page apps using the latest libraries in the Python ecosystem. This includes tools like `uv`, `pytest` (for TDD and automated unit tests), and modern PostgreSQL database patterns.
+
+> **Note**: This application was migrated from Databricks Unity Catalog to PostgreSQL. See [POSTGRESQL_MIGRATION.md](POSTGRESQL_MIGRATION.md) for details about the migration.
 
 
-## Deploying as a Databricks App
-1. Install the [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/index.html) and authenticate with your Databricks workspace using [OAuth U2M](https://docs.databricks.com/en/dev-tools/auth/oauth-u2m.html), for example:
+## 🚀 Quick Start
 
+**New to this application?** Follow the complete setup guide:
+👉 **[docs/SETUP-GUIDE.md](docs/SETUP-GUIDE.md)** 👈
+
+### 5-Step Setup (15-20 minutes)
+1. Install prerequisites (Python 3.11+, PostgreSQL, uv)
+2. Clone repository and install dependencies
+3. Configure environment variables  
+4. Run `setup_scripts/initialize_database.py`
+5. Start the application
+
+**Result:** Production-ready application with PostgreSQL backend! 🎉
+
+## Prerequisites
+
+1. **PostgreSQL Database** (version 12 or higher)
+   - Install PostgreSQL locally or use a cloud provider (AWS RDS, Google Cloud SQL, Azure Database, etc.)
+   - Create a database for the application
+   - Have connection credentials ready (host, port, username, password)
+
+2. **Python 3.11+** and **uv** package manager
    ```bash
-   databricks auth login --host https://my-workspace.cloud.databricks.com/
+   # Install uv if you don't have it
+   curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
-2. Unfortunately currently you can not currently pass variables to Apps deployed by Databricks Asset Bundles, so edit the following variables in `app.yml` to the UC Catalog and Schema you want to use for the application to read and write into.
 
-   ```yaml
-   env:
-      - name: 'DATABRICKS_CATALOG'
-         value: 'daveok'
-      - name: 'DATABRICKS_SCHEMA'
-         value: 'excel_app'
-   ```
-3. Simply run this to deploy with Databricks Asset Bundles
-   ```bash
-   databricks bundle deploy && databricks bundle run dash-dbx-writeback 
-   ```
-4. When you login to the app for the first time, be sure to give it a little bit to initialize the table (got to build a waiting window for it).
+## Features
+
+- 📊 **Excel-like Grid**: Edit data with AG-Grid's powerful interface
+- 💾 **Database Writeback**: Persist changes directly to PostgreSQL
+- 📈 **Forecast Management**: Submit and track forecast requests
+- 🔄 **Real-time Updates**: Changes reflected immediately
+- 📁 **CSV Upload**: Bulk import data from CSV files
+- 🎨 **Modern UI**: Built with Dash Mantine Components
 
 ## Running Locally
 
-1. Clone this repo to your local machine and switch into the `auth-demo` folder:
+1. Clone this repo to your local machine:
    ```bash
    git clone https://github.com/databricks-solutions/databricks-apps-examples.git
    cd databricks-apps-examples/dash-dbx-writeback
    ```
-2. Create and activate a Python virtual environment in this folder [`venv`](https://docs.python.org/3/library/venv.html):
+
+2. Create and activate a Python virtual environment:
    ```bash
    uv venv --python 3.11
    source .venv/bin/activate
-
-   uv pip compile pyproject.toml -o requirements.txt
-
-   uv pip install -r pyproject.toml --all-extras
    ```
 
-3. Set the ENVIRONMENTAL Variables using a .env file and create a catalog in UC
+3. Install dependencies:
+   ```bash
+   uv pip install -r requirements.txt
+   # Or for development with testing dependencies
+   uv pip install -e ".[dev]"
+   ```
 
+4. Set up your PostgreSQL database:
    ```sql
-   CREATE CATALOG daveok;
-   CREATE SCHEMA daveok.dash_writeback;
+   -- Connect to PostgreSQL and create database
+   CREATE DATABASE dash_writeback;
+   
+   -- Connect to the new database
+   \c dash_writeback
+   
+   -- Optional: Create a schema (if not using 'public')
+   CREATE SCHEMA IF NOT EXISTS app_schema;
    ```
 
+5. Configure environment variables:
    ```bash
-   touch .env 
-
-   DATABRICKS_HOST=https://my-workspace.cloud.databricks.com/
-   DATABRICKS_WAREHOUSE_ID=<navigate to sql warehouse in compute pane and find ID in brackets under Name>
-   DATABRICKS_TOKEN=<PAT_TOKEN>
-   DATABRICKS_CATALOG=<YOUR_CATALOG>
-   DATABRICKS_SCHEMA="dash_writeback"
+   # Create a .env file
+   touch .env
    ```
-
+   
+   Add the following to your `.env` file:
    ```bash
-   export $(grep -v '^#' .env | xargs)      
+   # PostgreSQL Connection
+   POSTGRES_HOST=localhost
+   POSTGRES_PORT=5432
+   POSTGRES_DATABASE=dash_writeback
+   POSTGRES_USER=postgres
+   POSTGRES_PASSWORD=your_password
+   POSTGRES_SCHEMA=public
+   
+   # Optional: Connection pool settings
+   POSTGRES_POOL_SIZE=5
+   POSTGRES_MAX_OVERFLOW=10
    ```
-3. Run the app:
-   ```bash
-   uv run python -m src.dash_dbx_writeback
 
-   python -m src/dash_dbx_writeback
+6. Load environment variables and run the app:
+   ```bash
+   # Load environment variables
+   export $(grep -v '^#' .env | xargs)
+   
+   # Run the application
+   uv run python -m dash_dbx_writeback.app
    ```
+
+7. Open your browser and navigate to: `http://localhost:8050`
 
 > [!NOTE]
->
-> - When running locally, on-behalf-of-user authorization will not work due to the missing `X-Forwarded-Access-Token` header.
-> - The service principal authorization section of the app will instead use your user credentials as configured with the CLI.
+> - The application will automatically create required tables on first run
+> - Tables will be initialized with sample data if they don't exist  
+> - See [docs/SETUP-GUIDE.md](docs/SETUP-GUIDE.md) for detailed setup instructions
+> - See [POSTGRESQL_MIGRATION.md](POSTGRESQL_MIGRATION.md) for migration from Databricks
+
+## 📂 Project Structure
+
+```
+dash-dbx-writeback/
+├── config.py                    # Centralized configuration (dataclass-based)
+├── database_setup/              # SQL schema files and documentation
+│   ├── complete_schema_setup.sql
+│   └── README.md
+├── setup_scripts/               # Automated setup and verification scripts
+│   ├── initialize_database.py
+│   └── verify_setup.py
+├── docs/                        # Comprehensive documentation
+│   ├── SETUP-GUIDE.md          # **START HERE** - Complete setup guide
+│   └── ARCHITECTURE.md          # Technical architecture overview
+└── src/dash_dbx_writeback/     # Application source code
+    ├── app.py                   # Main Dash application
+    ├── database_operations.py   # Centralized database operations
+    ├── callbacks/               # Event handlers
+    ├── components/              # Reusable UI components
+    ├── pages/                   # Multi-page application pages
+    ├── config/                  # Configuration modules
+    ├── data/                    # Sample data generation
+    └── ml/                      # Machine learning modules
+```
+
+## 📚 Documentation
+
+- **[docs/SETUP-GUIDE.md](docs/SETUP-GUIDE.md)** - **START HERE** - Complete step-by-step setup ⭐
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Technical architecture and design
+- **[database_setup/README.md](database_setup/README.md)** - Database schema details
+- **[POSTGRESQL_MIGRATION.md](POSTGRESQL_MIGRATION.md)** - Migration guide from Databricks
+
+## 🆘 Troubleshooting
+
+**Permission denied?**
+- Ensure PostgreSQL user has proper permissions
+- Run the verification script: `python setup_scripts/verify_setup.py`
+
+**Connection issues?**
+- Verify PostgreSQL is running: `pg_isready -h localhost -p 5432`
+- Check credentials in `.env` file
+- Ensure firewall allows connections
+
+**No data in app?**
+- Run initialization script: `python setup_scripts/initialize_database.py`
+- Check database has sample data: `SELECT COUNT(*) FROM layout_data;`
+
+See **[docs/SETUP-GUIDE.md](docs/SETUP-GUIDE.md)** for detailed troubleshooting
 
 ---
 
@@ -86,12 +174,11 @@ It's also one of the most complete examples we have for building sophisticated m
 | library                  | description                                        | license      | source                                              |
 | ------------------------ | -------------------------------------------------- | ------------ | --------------------------------------------------- |
 | dash                     | Framework for building analytical web applications | MIT          | https://github.com/plotly/dash                      |
-| dash-ag-grid | AG Grid Plugin for Dash apps                      | MIT          | https://github.com/plotly/dash-ag-grid            |
+| dash-ag-grid             | AG Grid Plugin for Dash apps                       | MIT          | https://github.com/plotly/dash-ag-grid              |
 | dash_mantine_components  | Mantine components for Dash                        | MIT          | https://github.com/snehilvj/dash-mantine-components |
-| databricks-sdk           | Databricks SDK for Python                          | Apache 2.0   | https://github.com/databricks/databricks-sdk-py     |
-| databricks-sql-connector | Databricks SQL Connector for Python                | Apache 2.0   | https://github.com/databricks/databricks-sql-python |
 | pandas                   | Data analysis and manipulation library             | BSD 3-Clause | https://github.com/pandas-dev/pandas                |
-| pyarrow                  | Python library for Apache Arrow                    | Apache 2.0   | https://github.com/apache/arrow/tree/main/python    |
+| psycopg2-binary          | PostgreSQL adapter for Python                      | LGPL         | https://github.com/psycopg/psycopg2                 |
+| SQLAlchemy               | SQL toolkit and ORM for Python                     | MIT          | https://github.com/sqlalchemy/sqlalchemy            |
 
 Databricks support doesn't cover this content. For questions or bugs, please open a github issue and the team will help on a best effort basis.
 

@@ -1,61 +1,28 @@
+"""
+File upload functionality for PostgreSQL backend.
+
+Note: This replaces the Databricks Volume upload functionality.
+Files are now uploaded directly to PostgreSQL tables.
+"""
+
 from typing import List, Optional, Union, Tuple
 from dash import Dash, html, dcc, callback, Input, Output, State
 import dash_bootstrap_components as dbc
-from databricks.sdk import WorkspaceClient
-from databricks.sdk.service.catalog import SecurableType
 import os
 import io
 import base64
 import dash
 import pandas as pd
-from ..config.workspace_client import get_workspace_client
-from ..config.unity_catalog import get_full_table_name
-from .tables import insert_overwrite_table, get_connection
 
-from ..config.unity_catalog import get_volume_path
-
-
-def upload_file_to_volume(file_path: str, volume_path: str) -> None:
-    w = get_workspace_client()
-
-    # Read file into bytes
-    with open("local_file.csv", "rb") as f:
-        file_bytes = f.read()
-    binary_data = io.BytesIO(file_bytes)
-
-    # Specify volume path and upload
-    volume_file_path = get_volume_path("to_ragemaker")
-    w.files.upload(volume_file_path, binary_data, overwrite=True)
-
-
-def check_upload_permissions(volume_name: str) -> str:
-    """Check if user has required permissions on the volume"""
-    try:
-        volume = w.volumes.read(name=volume_name)
-        current_user = w.current_user.me()
-        grants = w.grants.get_effective(
-            securable_type=SecurableType.VOLUME,
-            full_name=volume.full_name,
-            principal=current_user.user_name,
-        )
-
-        if not grants or not grants.privilege_assignments:
-            return "Insufficient permissions: No grants found."
-
-        for assignment in grants.privilege_assignments:
-            for privilege in assignment.privileges:
-                if privilege.privilege.value in ["ALL_PRIVILEGES", "WRITE_VOLUME"]:
-                    return "Volume and permissions validated"
-
-        return "Insufficient permissions: Required privileges not found."
-    except Exception as e:
-        return f"Error: {e}"
+from ..database_operations import get_connection
+from ..config import db_config
+from .tables import insert_overwrite_table
 
 
 def layout() -> html.Div:
     return html.Div(
         [
-            html.H1("Upload Data to Databricks"),
+            html.H1("Upload Data to Database"),
             dcc.Upload(
                 id="upload-data",
                 children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
@@ -120,8 +87,8 @@ def update_output(
                         html.H6(f"Number of rows: {len(df)}"),
                         html.H6(f"Number of columns: {len(df.columns)}"),
                         html.Button(
-                            "Upload to Databricks",
-                            id="upload-to-databricks",
+                            "Upload to Database",
+                            id="upload-to-database",
                             n_clicks=0,
                         ),
                         html.Div(id="upload-status"),
@@ -136,11 +103,11 @@ def update_output(
 
 @callback(
     Output("upload-status", "children"),
-    Input("upload-to-databricks", "n_clicks"),
+    Input("upload-to-database", "n_clicks"),
     State("upload-data", "contents"),
     prevent_initial_call=True,
 )
-def upload_to_databricks(
+def upload_to_database(
     n_clicks: int, contents: Optional[List[str]]
 ) -> Union[str, html.Div]:
     if n_clicks == 0:
@@ -156,17 +123,15 @@ def upload_to_databricks(
         # Read the CSV file
         df = pd.read_csv(io.StringIO(decoded.decode("utf-8")))
 
-        # Get the HTTP path from environment variable
-        http_path = os.getenv("DATABRICKS_HTTP_PATH")
-        if not http_path:
-            return html.Div("Error: DATABRICKS_HTTP_PATH environment variable not set")
-
         # Get connection
-        conn = get_connection(http_path)
+        conn = get_connection()
 
-        # Upload to Databricks
-        volume_path = get_volume_path("to_ragemaker")
-        rowcount = upload_file_to_volume(file_path=df, volume_path=volume_path)
+        # Upload to PostgreSQL table - using a generic "uploads" table name
+        # You can customize this to use a specific table name
+        table_name = db_config.get_full_table_name("uploads")
+        rowcount = insert_overwrite_table(
+            table_name=table_name, df=df, conn=conn, overwrite=False
+        )
 
         return html.Div(
             [
@@ -176,7 +141,7 @@ def upload_to_databricks(
         )
 
     except Exception as e:
-        return html.Div(f"Error uploading to Databricks: {str(e)}")
+        return html.Div(f"Error uploading to database: {str(e)}")
 
 
 # Simple callback to show filename
