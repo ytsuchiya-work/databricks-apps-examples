@@ -180,7 +180,7 @@ def insert_overwrite_table(
     Args:
         table_name: Name of the target table (format: schema.table or just table)
         df: DataFrame containing the data to write
-        conn: PostgreSQL connection
+        conn: PostgreSQL connection pool
         overwrite: Whether to overwrite existing data (True) or append (False)
 
     Returns:
@@ -191,39 +191,41 @@ def insert_overwrite_table(
     log(f"→ insert_overwrite_table: Overwrite mode: {overwrite}")
 
     try:
-        # Ensure table exists with proper schema
-        ensure_table_exists(table_name, df, conn)
+        # Get an actual connection from the pool
+        with conn.connection() as connection:
+            # Ensure table exists with proper schema
+            ensure_table_exists(table_name, df, connection)
 
-        with conn.cursor() as cursor:
-            # Convert DataFrame to list of tuples for insertion
-            records = df.replace({pd.NA: None}).to_records(index=False)
-            data = [tuple(row) for row in records]
-            log(f"→ insert_overwrite_table: Processing {len(data)} records")
+            with connection.cursor() as cursor:
+                # Convert DataFrame to list of tuples for insertion
+                records = df.replace({pd.NA: None}).to_records(index=False)
+                data = [tuple(row) for row in records]
+                log(f"→ insert_overwrite_table: Processing {len(data)} records")
 
-            # Get column names
-            columns = df.columns.tolist()
-            columns_str = ", ".join([f'"{col}"' for col in columns])
+                # Get column names
+                columns = df.columns.tolist()
+                columns_str = ", ".join([f'"{col}"' for col in columns])
 
-            if overwrite:
-                log(f"→ insert_overwrite_table: Truncating table before insert")
-                cursor.execute(f"TRUNCATE TABLE {table_name}")
-                conn.commit()
-            else:
-                log(f"→ insert_overwrite_table: Appending to existing data")
+                if overwrite:
+                    log(f"→ insert_overwrite_table: Truncating table before insert")
+                    cursor.execute(f"TRUNCATE TABLE {table_name}")
+                    connection.commit()
+                else:
+                    log(f"→ insert_overwrite_table: Appending to existing data")
 
-            # Use execute_values for efficient bulk insert
-            insert_query = f"INSERT INTO {table_name} ({columns_str}) VALUES %s"
-            log(f"→ insert_overwrite_table: Executing bulk INSERT")
+                # Use executemany for efficient bulk insert
+                placeholders = ", ".join(["%s"] * len(columns))
+                insert_query = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})"
+                log(f"→ insert_overwrite_table: Executing bulk INSERT")
 
-            execute_values(cursor, insert_query, data)
-            conn.commit()
-            
-            rowcount = cursor.rowcount
-            log(f"→ insert_overwrite_table: Successfully inserted {rowcount} rows")
-            return rowcount
+                cursor.executemany(insert_query, data)
+                connection.commit()
+                
+                rowcount = cursor.rowcount
+                log(f"→ insert_overwrite_table: Successfully inserted {rowcount} rows")
+                return rowcount
 
     except Exception as e:
-        conn.rollback()
         error_msg = f"Failed to write table: {str(e)}"
         log(f"✗ insert_overwrite_table: {error_msg}")
         return error_msg, 0
