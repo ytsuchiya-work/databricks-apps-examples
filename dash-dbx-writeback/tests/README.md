@@ -19,6 +19,42 @@ Comprehensive integration tests for PostgreSQL/Lakebase functionality covering:
 - **Error Handling** - Invalid tables, empty data, edge cases
 - **End-to-End Scenarios** - Complete workflows like forecast submission and category filtering
 
+## Test Database Setup
+
+### Option 1: Dedicated Test Database (Recommended)
+
+Create a completely separate database for testing to ensure zero impact on production:
+
+```bash
+# Run the setup script
+python tests/setup_test_database.py
+```
+
+This will:
+- Create a new database (e.g., `databricks_postgres_test`)
+- Set up test schema and permissions
+- Verify the setup with test operations
+
+Then add to your `.env`:
+```bash
+LAKEBASE_TEST_DATABASE=databricks_postgres_test
+```
+
+**Benefits:**
+- ✅ Complete isolation from production
+- ✅ No risk of impacting production data
+- ✅ Can drop entire database for clean slate
+- ✅ Better reflects production environment
+
+### Option 2: Test Schema in Production Database
+
+Tests will use a separate schema (`test_schema`) within the production database.
+
+**When to Use:**
+- Cannot create additional databases
+- Want simpler setup
+- Comfortable with schema-level isolation
+
 ## Running Tests
 
 ### Prerequisites
@@ -28,6 +64,7 @@ Comprehensive integration tests for PostgreSQL/Lakebase functionality covering:
    - Required environment variables:
      - `LAKEBASE_INSTANCE_NAME` - Your Lakebase instance name
      - `LAKEBASE_DATABASE` - Database name (default: `databricks_postgres`)
+     - `LAKEBASE_TEST_DATABASE` - **Dedicated test database (recommended)**
      - `LAKEBASE_SCHEMA` - Schema for production (optional)
      - `LAKEBASE_TEST_SCHEMA` - Schema for tests (default: `test_schema`)
 
@@ -250,7 +287,29 @@ def test_app_workflow(self, pg_connection_pool, test_table_name):
 - Monitor test execution time
 - Update documentation
 
-### Schema Management
+### Database Management
+
+#### Dedicated Test Database
+
+If you're using a dedicated test database, you can clean it up with:
+
+```bash
+# Drop the entire test database
+python tests/cleanup_test_database.py
+```
+
+This will:
+- Show database size and table count
+- Require confirmation before deletion
+- Terminate all active connections
+- Drop the database completely
+
+**Safety Features:**
+- Refuses to drop production database
+- Requires explicit confirmation (type "DELETE")
+- Shows database size and table count before deletion
+
+#### Test Schema in Production Database
 
 Tests create tables in `test_schema` during execution. These are cleaned up automatically, but you can manually verify:
 

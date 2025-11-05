@@ -36,6 +36,15 @@ def pytest_configure(config):
             "⚠️  No .env file found. Make sure to set required environment variables manually."
         )
     
+    # Use test database if configured to completely isolate from production
+    test_database = os.getenv("LAKEBASE_TEST_DATABASE")
+    if test_database:
+        os.environ["LAKEBASE_DATABASE"] = test_database
+        print(f"✓ Using dedicated test database: {test_database}")
+    else:
+        print(f"ℹ️  No test database configured, using production database with test schema")
+        print(f"   To use a dedicated test database, run: python tests/setup_test_database.py")
+    
     # Set test-specific environment variables if not already set
     if not os.getenv("LAKEBASE_SCHEMA"):
         # Use a test schema to avoid impacting production data
@@ -84,15 +93,23 @@ def pytest_sessionfinish(session, exitstatus):
     print("🧹 CLEANING UP TEST SESSION")
     print("=" * 60)
     
-    # Optionally drop test schema and all its tables
-    # Uncomment the following lines if you want to clean up the test schema after tests
-    # schema = db_config.SCHEMA
-    # if schema and schema != "public":
-    #     try:
-    #         execute_sql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
-    #         print(f"✓ Dropped test schema: {schema}")
-    #     except Exception as e:
-    #         print(f"⚠️  Could not drop test schema: {e}")
+    # Check if we're using a dedicated test database
+    test_database = os.getenv("LAKEBASE_TEST_DATABASE")
+    
+    if test_database:
+        print(f"ℹ️  Test database '{test_database}' will be preserved")
+        print(f"   To drop it, run: python tests/cleanup_test_database.py")
+    else:
+        # Optionally drop test schema and all its tables if using production database
+        # Uncomment the following lines if you want to clean up the test schema after tests
+        # schema = db_config.SCHEMA
+        # if schema and schema != "public":
+        #     try:
+        #         execute_sql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
+        #         print(f"✓ Dropped test schema: {schema}")
+        #     except Exception as e:
+        #         print(f"⚠️  Could not drop test schema: {e}")
+        pass
     
     # Close all database connections
     close_all_connections()
