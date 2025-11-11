@@ -50,24 +50,20 @@ def test_read_table(mock_connection, mock_cursor):
 
 def test_get_connection():
     # Test that get_connection returns None when pool initialization fails
-    with patch("dash_dbx_writeback.database_operations.initialize_connection_pool") as mock_init:
-        mock_init.return_value = False
-        result = get_connection()
-        assert result is None
+    import dash_dbx_writeback.database_operations as db_ops
+    
+    # Mock the global _connection_pool as None
+    with patch.object(db_ops, '_connection_pool', None):
+        with patch("dash_dbx_writeback.database_operations.initialize_connection_pool") as mock_init:
+            mock_init.return_value = False
+            result = get_connection()
+            assert result is None
         
     # Test that get_connection returns pool when initialization succeeds
-    with patch("dash_dbx_writeback.database_operations.initialize_connection_pool") as mock_init:
-        mock_init.return_value = True
-        with patch("dash_dbx_writeback.database_operations._connection_pool", MagicMock()):
-            mock_pool = MagicMock()
-            with patch("dash_dbx_writeback.database_operations._connection_pool", mock_pool):
-                # Initialize first
-                initialize_connection_pool()
-                # Manually set the global _connection_pool for the test
-                import dash_dbx_writeback.database_operations as db_ops
-                db_ops._connection_pool = mock_pool
-                result = get_connection()
-                assert result == mock_pool
+    mock_pool = MagicMock()
+    with patch.object(db_ops, '_connection_pool', mock_pool):
+        result = get_connection()
+        assert result == mock_pool
 
 
 @pytest.mark.integration
