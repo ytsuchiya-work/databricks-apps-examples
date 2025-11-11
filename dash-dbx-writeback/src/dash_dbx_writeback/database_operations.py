@@ -70,28 +70,34 @@ def initialize_connection_pool() -> bool:
         try:
             log("→ Initializing Databricks Lakebase connection pool")
             
-            if not db_config.INSTANCE_NAME:
-                raise ValueError("LAKEBASE_INSTANCE_NAME not set")
+            # Validate required environment variables are set
+            if not db_config.HOST:
+                raise ValueError("PGHOST not set - ensure database resource is configured")
+            if not db_config.DATABASE:
+                raise ValueError("PGDATABASE not set - ensure database resource is configured")
+            if not db_config.USER:
+                raise ValueError("PGUSER not set - ensure database resource is configured")
             
             # Get workspace client
             w = get_workspace_client()
             
-            # Get host from database instance
-            host = w.database.get_database_instance(name=db_config.INSTANCE_NAME).read_write_dns
+            # Get instance name from config (either from LAKEBASE_INSTANCE_NAME or extracted from PGHOST)
+            instance_name = db_config.INSTANCE_NAME
+            if not instance_name:
+                raise ValueError("INSTANCE_NAME not set - ensure database resource is configured properly")
             
-            # Get current user for connection
-            user = w.current_user.me().user_name
-            
-            log(f"  Instance: {db_config.INSTANCE_NAME}")
-            log(f"  Host: {host}")
-            log(f"  User: {user}")
+            log(f"  Host: {db_config.HOST}")
+            log(f"  Port: {db_config.PORT}")
             log(f"  Database: {db_config.DATABASE}")
+            log(f"  User: {db_config.USER}")
+            log(f"  Instance: {instance_name}")
+            log(f"  SSL Mode: {db_config.SSL_MODE}")
             
             # Build connection pool with OAuth token rotation
             _connection_pool = ConnectionPool(
-                conninfo=f"host={host} dbname={db_config.DATABASE} user={user}",
+                conninfo=f"host={db_config.HOST} port={db_config.PORT} dbname={db_config.DATABASE} user={db_config.USER} sslmode={db_config.SSL_MODE}",
                 connection_class=RotatingTokenConnection,
-                kwargs={"_instance_name": db_config.INSTANCE_NAME},
+                kwargs={"_instance_name": instance_name},
                 min_size=db_config.POOL_MIN_SIZE,
                 max_size=db_config.POOL_MAX_SIZE,
                 open=True,

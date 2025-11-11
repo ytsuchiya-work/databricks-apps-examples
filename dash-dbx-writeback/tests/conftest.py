@@ -3,13 +3,12 @@ import pytest
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Import for legacy Databricks Unity Catalog tests
+# Import for sample data
 try:
-    from dash_dbx_writeback.config.workspace_client import get_connection as get_uc_connection
-    from dash_dbx_writeback.data.sample_product_data import generate_product_data
-    DATABRICKS_UC_AVAILABLE = True
+    from dash_dbx_writeback.sample_data import INITIAL_DATA
+    SAMPLE_DATA_AVAILABLE = True
 except ImportError:
-    DATABRICKS_UC_AVAILABLE = False
+    SAMPLE_DATA_AVAILABLE = False
 
 # Import for PostgreSQL/Lakebase tests
 from dash_dbx_writeback.database_operations import (
@@ -138,47 +137,12 @@ def test_schema():
 
 
 # ============================================================================
-# Legacy Databricks Unity Catalog Fixtures (for backward compatibility)
+# Sample Data Fixtures
 # ============================================================================
 
 @pytest.fixture(scope="session")
-def conn():
-    """Get a Databricks Unity Catalog connection (legacy)."""
-    if not DATABRICKS_UC_AVAILABLE:
-        pytest.skip("Databricks Unity Catalog connection not available")
-    
-    http_path = os.getenv("DATABRICKS_HTTP_PATH")
-    if not http_path:
-        pytest.skip("DATABRICKS_HTTP_PATH not set")
-    
-    return get_uc_connection(http_path)
-
-
-@pytest.fixture(scope="session")
-def test_table_name():
-    """Legacy test table name for Unity Catalog tests."""
-    return "daveok.excel_app.pytest_read"
-
-
-@pytest.fixture(scope="session")
-def write_table(conn, test_table_name):
-    """Legacy fixture for Unity Catalog write tests."""
-    with conn.cursor() as cursor:
-        cursor.execute(
-            f"CREATE TABLE IF NOT EXISTS {test_table_name} (x int, x_squared int)"
-        )
-
-        squares = [(i, i * i) for i in range(100)]
-        values = ",".join([f"({x}, {y})" for (x, y) in squares])
-
-        cursor.execute(f"INSERT INTO {test_table_name} VALUES {values}")
-        yield values
-        cursor.execute(f"DROP TABLE {test_table_name}")
-
-
-@pytest.fixture(scope="session")
 def custom_data():
-    """Legacy fixture for sample product data."""
-    if not DATABRICKS_UC_AVAILABLE:
-        pytest.skip("Sample data generation not available")
-    yield generate_product_data(num_products=3)
+    """Fixture for sample product data."""
+    if not SAMPLE_DATA_AVAILABLE:
+        pytest.skip("Sample data not available")
+    yield INITIAL_DATA[:3]

@@ -27,15 +27,25 @@ It's a complete example for building sophisticated multi-page apps using the lat
 
 ## Prerequisites
 
-1. **PostgreSQL Database** (version 12 or higher)
-   - Install PostgreSQL locally or use a cloud provider (AWS RDS, Google Cloud SQL, Azure Database, etc.)
-   - Create a database for the application
-   - Have connection credentials ready (host, port, username, password)
+1. **Databricks Lakebase PostgreSQL**
+   - Access to a Databricks workspace with Lakebase enabled
+   - A Lakebase PostgreSQL instance created in your workspace
+   - Databricks personal access token for authentication
+   - Connection details (hostname, database name, username)
 
 2. **Python 3.11+** and **uv** package manager
    ```bash
    # Install uv if you don't have it
    curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+3. **Databricks CLI** (for authentication)
+   ```bash
+   # Install Databricks CLI
+   pip install databricks-cli
+   
+   # Configure authentication
+   databricks configure --token
    ```
 
 ## Features
@@ -48,6 +58,19 @@ It's a complete example for building sophisticated multi-page apps using the lat
 - 🎨 **Modern UI**: Built with Dash Mantine Components
 
 ## Running Locally
+
+### Architecture Overview
+
+This application **always connects to Databricks Lakebase PostgreSQL** - both when running locally and when deployed to Databricks Apps. The only difference is how credentials are provided:
+
+- **Local Development**: You manually set environment variables in a `.env` file
+- **Databricks Deployment**: Environment variables are automatically injected from the database resource
+
+### Environment Configuration
+
+The application uses **standard PostgreSQL environment variables** (`PGHOST`, `PGPORT`, etc.) that point to your Databricks Lakebase instance.
+
+### Setup Steps
 
 1. Clone this repo to your local machine:
    ```bash
@@ -68,40 +91,49 @@ It's a complete example for building sophisticated multi-page apps using the lat
    uv pip install -e ".[dev]"
    ```
 
-4. Set up your PostgreSQL database:
-   ```sql
-   -- Connect to PostgreSQL and create database
-   CREATE DATABASE dash_writeback;
+4. Configure Databricks CLI authentication:
+   ```bash
+   # Install Databricks CLI if not already installed
+   pip install databricks-cli
    
-   -- Connect to the new database
-   \c dash_writeback
-   
-   -- Optional: Create a schema (if not using 'public')
-   CREATE SCHEMA IF NOT EXISTS app_schema;
+   # Configure authentication with your workspace
+   databricks configure --token
+   # Enter your workspace URL and personal access token when prompted
    ```
 
-5. Configure environment variables:
-   ```bash
-   # Create a .env file
-   touch .env
-   ```
+5. Get your Lakebase instance name:
    
-   Add the following to your `.env` file:
-   ```bash
-   # PostgreSQL Connection
-   POSTGRES_HOST=localhost
-   POSTGRES_PORT=5432
-   POSTGRES_DATABASE=dash_writeback
-   POSTGRES_USER=postgres
-   POSTGRES_PASSWORD=your_password
-   POSTGRES_SCHEMA=public
-   
-   # Optional: Connection pool settings
-   POSTGRES_POOL_SIZE=5
-   POSTGRES_MAX_OVERFLOW=10
-   ```
+   Navigate to your Databricks workspace:
+   1. Go to **SQL** → **Databases** (or check your Lakebase configuration)
+   2. Find your Lakebase database instance name
+   3. Note down the instance name (e.g., `daveok`, `my-instance`)
 
-6. Load environment variables and run the app:
+6. Configure environment variables for local development:
+   ```bash
+   # Copy the example environment file
+   cp example.env .env
+   ```
+   
+   Edit `.env` and set your instance name:
+   ```bash
+   # Just set the instance name - everything else is auto-populated!
+   LAKEBASE_INSTANCE_NAME=your-instance-name
+   
+   # Optional: Override default database name
+   LAKEBASE_DATABASE=databricks_postgres
+   
+   # Optional: Set schema (defaults to public)
+   LAKEBASE_SCHEMA=public
+   ```
+   
+   That's it! The application will automatically use WorkspaceClient to:
+   - Get your username from `w.current_user.me().user_name`
+   - Get the host from `w.database.get_database_instance(name=instance_name).read_write_dns`
+   - Generate OAuth tokens automatically for secure connections
+   
+   > See `example.env` for detailed documentation and advanced configuration options
+
+7. Load environment variables and run the app:
    ```bash
    # Load environment variables
    export $(grep -v '^#' .env | xargs)
@@ -110,7 +142,33 @@ It's a complete example for building sophisticated multi-page apps using the lat
    uv run python -m dash_dbx_writeback.app
    ```
 
-7. Open your browser and navigate to: `http://localhost:8050`
+8. Open your browser and navigate to: `http://localhost:8050`
+
+### How It Works
+
+**Local Development (Simplified):**
+- You only set `LAKEBASE_INSTANCE_NAME` in your `.env` file
+- WorkspaceClient automatically populates:
+  - `PGUSER` from `w.current_user.me().user_name`
+  - `PGHOST` from `w.database.get_database_instance(name=instance_name).read_write_dns`
+  - `PGDATABASE` defaults to `databricks_postgres`
+- OAuth tokens are automatically generated and rotated via `RotatingTokenConnection`
+- Databricks CLI handles authentication (set up via `databricks configure --token`)
+
+**Databricks Deployment:**
+- The `app.yml` references the `postgres-database` resource
+- Databricks automatically injects `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`
+- The config detects these variables and uses them directly
+- OAuth tokens are generated using the app's service principal
+- No need to set `LAKEBASE_INSTANCE_NAME` in production
+
+### Important Notes
+
+- **Single Source of Truth**: The application always uses the same Databricks Lakebase instance
+- **No Local PostgreSQL Needed**: You don't need to run PostgreSQL locally - just connect to Lakebase
+- **OAuth Authentication**: The app uses OAuth tokens instead of passwords for secure authentication
+- **Automatic Token Rotation**: Tokens are generated fresh for each connection and automatically rotated
+- **Development/Production Parity**: Same database in both environments ensures consistency
 
 > [!NOTE]
 > - The application will automatically create required tables on first run
@@ -152,18 +210,29 @@ dash-dbx-writeback/
 
 ## 🆘 Troubleshooting
 
-**Permission denied?**
-- Ensure PostgreSQL user has proper permissions
-- Run the verification script: `python setup_scripts/verify_setup.py`
+**`PGHOST not set` error?**
+- Create a `.env` file with your Databricks Lakebase connection details
+- Ensure all required `PG*` environment variables are set
+- Load environment variables: `export $(grep -v '^#' .env | xargs)`
 
 **Connection issues?**
-- Verify PostgreSQL is running: `pg_isready -h localhost -p 5432`
-- Check credentials in `.env` file
-- Ensure firewall allows connections
+- Verify Databricks workspace is accessible
+- Check your personal access token is valid
+- Ensure Lakebase instance is running in your workspace
+- Verify `PGHOST` points to your Lakebase instance hostname
+
+**OAuth/Authentication errors?**
+- Run `databricks configure --token` to authenticate
+- Verify `DATABRICKS_HOST` and `DATABRICKS_TOKEN` in `.env`
+- Check your Databricks user has access to the Lakebase instance
+
+**Permission denied?**
+- Ensure your Databricks user has `CAN_CONNECT_AND_CREATE` permission on the database
+- Check schema permissions for the configured `LAKEBASE_SCHEMA`
 
 **No data in app?**
 - Run initialization script: `python setup_scripts/initialize_database.py`
-- Check database has sample data: `SELECT COUNT(*) FROM layout_data;`
+- Check database has sample data via Databricks SQL Editor
 
 See **[docs/SETUP-GUIDE.md](docs/SETUP-GUIDE.md)** for detailed troubleshooting
 

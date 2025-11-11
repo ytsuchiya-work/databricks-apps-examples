@@ -111,7 +111,7 @@ class TestConnectionPooling:
         assert pg_connection_pool is not None
         assert pg_connection_pool.closed is False
     
-    def test_get_connection(self):
+    def test_get_connection(self, pg_connection_pool):
         """Test getting connection from pool"""
         pool = get_connection()
         assert pool is not None
@@ -557,7 +557,7 @@ class TestErrorHandling:
 class TestConnectionLifecycle:
     """Test connection pool lifecycle and cleanup"""
     
-    def test_close_and_reinitialize(self):
+    def test_close_and_reinitialize(self, pg_connection_pool):
         """Test closing and reinitializing connection pool"""
         # Get initial connection
         pool1 = get_connection()
