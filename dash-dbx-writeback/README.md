@@ -13,17 +13,31 @@ It's a complete example for building sophisticated multi-page apps using the lat
 
 ## 🚀 Quick Start
 
-**New to this application?** Follow the complete setup guide:
+### Run Locally (3 commands)
+
+```bash
+# 1. Copy and configure environment
+cp example.env .env
+# Edit .env: Set LAKEBASE_INSTANCE_NAME=your-instance-name
+
+# 2. Run the application
+export $(grep -v '^#' .env | xargs) && uv run python -m src.dash_dbx_writeback
+
+# 3. Open browser
+# Navigate to http://localhost:8050
+```
+
+**Prerequisites:**
+- Python 3.11+, `uv` package manager
+- Databricks CLI configured: `databricks configure --token`
+- Lakebase instance name
+
+**That's it!** Everything else (username, host, OAuth tokens) auto-populates via WorkspaceClient.
+
+---
+
+**New to this application?** See the complete setup guide:
 👉 **[docs/SETUP-GUIDE.md](docs/SETUP-GUIDE.md)** 👈
-
-### 5-Step Setup (15-20 minutes)
-1. Install prerequisites (Python 3.11+, PostgreSQL, uv)
-2. Clone repository and install dependencies
-3. Configure environment variables  
-4. Run `setup_scripts/initialize_database.py`
-5. Start the application
-
-**Result:** Production-ready application with PostgreSQL backend! 🎉
 
 ## Prerequisites
 
@@ -108,7 +122,7 @@ The application uses **standard PostgreSQL environment variables** (`PGHOST`, `P
    2. Find your Lakebase database instance name
    3. Note down the instance name (e.g., `daveok`, `my-instance`)
 
-6. Configure environment variables for local development:
+6. Configure environment variables:
    ```bash
    # Copy the example environment file
    cp example.env .env
@@ -116,33 +130,24 @@ The application uses **standard PostgreSQL environment variables** (`PGHOST`, `P
    
    Edit `.env` and set your instance name:
    ```bash
-   # Just set the instance name - everything else is auto-populated!
    LAKEBASE_INSTANCE_NAME=your-instance-name
-   
-   # Optional: Override default database name
-   LAKEBASE_DATABASE=databricks_postgres
-   
-   # Optional: Set schema (defaults to public)
-   LAKEBASE_SCHEMA=public
    ```
    
-   That's it! The application will automatically use WorkspaceClient to:
-   - Get your username from `w.current_user.me().user_name`
-   - Get the host from `w.database.get_database_instance(name=instance_name).read_write_dns`
-   - Generate OAuth tokens automatically for secure connections
-   
-   > See `example.env` for detailed documentation and advanced configuration options
+   That's it! Everything else is auto-populated via WorkspaceClient.
 
-7. Load environment variables and run the app:
+7. **Run the application:**
    ```bash
-   # Load environment variables
-   export $(grep -v '^#' .env | xargs)
-   
-   # Run the application
-   uv run python -m dash_dbx_writeback.app
+   export $(grep -v '^#' .env | xargs) && uv run python -m src.dash_dbx_writeback
    ```
 
 8. Open your browser and navigate to: `http://localhost:8050`
+
+> **What happens automatically:**
+> - Username populated from `w.current_user.me().user_name`
+> - Host populated from `w.database.get_database_instance(name).read_write_dns`
+> - OAuth tokens generated and rotated automatically
+> 
+> See `example.env` for advanced configuration options.
 
 ### How It Works
 
@@ -210,29 +215,42 @@ dash-dbx-writeback/
 
 ## 🆘 Troubleshooting
 
+### Running the Application
+
+**Command to run:**
+```bash
+export $(grep -v '^#' .env | xargs) && uv run python -m src.dash_dbx_writeback
+```
+
+**Common Issues:**
+
 **`PGHOST not set` error?**
-- Create a `.env` file with your Databricks Lakebase connection details
-- Ensure all required `PG*` environment variables are set
-- Load environment variables: `export $(grep -v '^#' .env | xargs)`
+- Create `.env` file: `cp example.env .env`
+- Set `LAKEBASE_INSTANCE_NAME=your-instance-name` in `.env`
+- Ensure you run the export command before running the app
+
+**`Module not found` error?**
+- Verify you're using the correct module path: `src.dash_dbx_writeback`
+- Run from project root directory
+- Ensure dependencies installed: `uv pip install -e .`
 
 **Connection issues?**
-- Verify Databricks workspace is accessible
-- Check your personal access token is valid
-- Ensure Lakebase instance is running in your workspace
-- Verify `PGHOST` points to your Lakebase instance hostname
+- Verify Databricks CLI is configured: `databricks configure --token`
+- Check Lakebase instance is running in your workspace
+- Test WorkspaceClient: `uv run python -c "from databricks.sdk import WorkspaceClient; print(WorkspaceClient().current_user.me().user_name)"`
 
 **OAuth/Authentication errors?**
 - Run `databricks configure --token` to authenticate
-- Verify `DATABRICKS_HOST` and `DATABRICKS_TOKEN` in `.env`
-- Check your Databricks user has access to the Lakebase instance
+- Verify your Databricks token is valid
+- Check your user has access to the Lakebase instance
 
 **Permission denied?**
-- Ensure your Databricks user has `CAN_CONNECT_AND_CREATE` permission on the database
-- Check schema permissions for the configured `LAKEBASE_SCHEMA`
+- Ensure your Databricks user has `CAN_CONNECT_AND_CREATE` permission
+- Check schema permissions for `LAKEBASE_SCHEMA`
 
-**No data in app?**
-- Run initialization script: `python setup_scripts/initialize_database.py`
-- Check database has sample data via Databricks SQL Editor
+**Database instance not found?**
+- Verify instance name is correct: Check in Databricks SQL → Databases
+- Ensure instance is running and accessible
 
 See **[docs/SETUP-GUIDE.md](docs/SETUP-GUIDE.md)** for detailed troubleshooting
 
