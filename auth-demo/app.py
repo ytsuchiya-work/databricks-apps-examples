@@ -18,7 +18,7 @@ from sql import (
 from utils import create_data_table, get_icon
 
 app = Dash(external_stylesheets=[dmc.styles.ALL])
-app.title = "Databricks Auth Demo"
+app.title = "Databricks 認証デモ"
 
 app.layout = dmc.MantineProvider(
     theme={
@@ -62,7 +62,7 @@ app.layout = dmc.MantineProvider(
                                                 height=28,
                                             ),
                                             dmc.Title(
-                                                "Databricks Apps Authorization Demo",
+                                                "Databricks Apps 認証デモ",
                                                 order=2,
                                             ),
                                         ],
@@ -92,14 +92,14 @@ app.layout = dmc.MantineProvider(
                                 dmc.GridCol(
                                     dmc.Select(
                                         id="sql-http-path",
-                                        label="Select SQL Warehouse",
-                                        description="Choose a running SQL warehouse.",
+                                        label="SQLウェアハウスを選択",
+                                        description="稼働中のSQLウェアハウスを選択してください。",
                                         data=[],
                                         value=None,
                                         required=True,
                                         style={"width": "100%"},
                                         searchable=True,
-                                        nothingFoundMessage="No warehouses found",
+                                        nothingFoundMessage="ウェアハウスが見つかりません",
                                         leftSection=get_icon(
                                             "material-symbols:database-outline"
                                         ),
@@ -109,10 +109,10 @@ app.layout = dmc.MantineProvider(
                                 dmc.GridCol(
                                     dmc.TextInput(
                                         id="table-name-input",
-                                        label="Unity Catalog Table Name",
-                                        description="Format: catalog.schema.table",
-                                        placeholder="main.sandbox.my_table",
-                                        value="samples.nyctaxi.trips",
+                                        label="Unity Catalog テーブル名",
+                                        description="形式: カタログ.スキーマ.テーブル",
+                                        placeholder="catalog.schema.table",
+                                        value="ytcy_azure_east2classic_stable.auth_demo.demo_users",
                                         required=True,
                                         style={"width": "100%"},
                                         leftSection=get_icon(
@@ -130,35 +130,35 @@ app.layout = dmc.MantineProvider(
                                 dmc.Paper(
                                     [
                                         dmc.Title(
-                                            "Service Principal (SP) Authorization",
+                                            "サービスプリンシパル (SP) 認証",
                                             order=3,
                                             mb="md",
                                         ),
                                         dmc.Text(
                                             [
-                                                "Uses this app's SP credentials via the ",
+                                                "このアプリのSP認証情報（",
                                                 dmc.InlineCodeHighlight(
                                                     code="DATABRICKS_CLIENT_ID"
                                                 ),
-                                                " and ",
+                                                " および ",
                                                 dmc.InlineCodeHighlight(
                                                     code="DATABRICKS_CLIENT_SECRET"
                                                 ),
-                                                " headers.",
+                                                "）を使用してクエリを実行します。",
                                             ],
                                             size="sm",
                                             mb="xs",
                                         ),
                                         dmc.Text(
                                             [
-                                                "Service principal: ",
+                                                "サービスプリンシパル: ",
                                                 html.B(id="sp-name-display"),
                                             ],
                                             size="sm",
                                             mb="md",
                                         ),
                                         dmc.Button(
-                                            "Run Query (SP)",
+                                            "クエリを実行 (SP)",
                                             id="run-query-sp",
                                             variant="outline",
                                             leftSection=get_icon(
@@ -173,8 +173,8 @@ app.layout = dmc.MantineProvider(
                                         ),
                                         dmc.Alert(
                                             id="alert-sp",
-                                            children="Status will appear here.",
-                                            title="Status",
+                                            children="ステータスがここに表示されます。",
+                                            title="ステータス",
                                             color="gray",
                                             withCloseButton=True,
                                             hide=True,
@@ -200,17 +200,17 @@ app.layout = dmc.MantineProvider(
                                 dmc.Paper(
                                     [
                                         dmc.Title(
-                                            "On-Behalf-Of User (OBO) Authorization",
+                                            "ユーザー代理認証 (OBO)",
                                             order=3,
                                             mb="md",
                                         ),
                                         dmc.Text(
                                             [
-                                                "Uses the accessing user's credentials via the ",
+                                                "アクセスするユーザーの認証情報（",
                                                 dmc.InlineCodeHighlight(
                                                     code="X-Forwarded-Access-Token"
                                                 ),
-                                                " header.",
+                                                " ヘッダー）を使用してクエリを実行します。",
                                             ],
                                             size="sm",
                                             mb="xs",
@@ -222,7 +222,7 @@ app.layout = dmc.MantineProvider(
                                         ),
                                         dmc.Alert(
                                             id="obo-token-status",
-                                            title="OBO Status",
+                                            title="OBO ステータス",
                                             color="blue",
                                             mb="md",
                                             radius="sm",
@@ -234,18 +234,18 @@ app.layout = dmc.MantineProvider(
                                                     dmc.AccordionItem(
                                                         [
                                                             dmc.AccordionControl(
-                                                                "View Access Token Details",
+                                                                "アクセストークンの詳細を表示",
                                                                 icon=get_icon("material-symbols:key-outline"),
                                                             ),
                                                             dmc.AccordionPanel(
                                                                 [
                                                                     dmc.Stack(
                                                                         [
-                                                                            dmc.Text("Raw JWT Token:", size="sm", fw=500, mb="xs"),
+                                                                            dmc.Text("生JWTトークン:", size="sm", fw=500, mb="xs"),
                                                                             dmc.ScrollArea(
                                                                                 dmc.Code(
                                                                                     id="jwt-raw-token",
-                                                                                    children="Token will appear here when available",
+                                                                                    children="トークンが利用可能になるとここに表示されます",
                                                                                     block=True,
                                                                                     style={"whiteSpace": "pre-wrap", "wordBreak": "break-all"},
                                                                                 ),
@@ -253,11 +253,11 @@ app.layout = dmc.MantineProvider(
                                                                                 type="auto",
                                                                             ),
                                                                             dmc.Divider(my="md"),
-                                                                            dmc.Text("Decoded JWT Payload:", size="sm", fw=500, mb="xs"),
+                                                                            dmc.Text("デコードされたJWTペイロード:", size="sm", fw=500, mb="xs"),
                                                                             dmc.ScrollArea(
                                                                                 dmc.Code(
                                                                                     id="jwt-decoded",
-                                                                                    children="Decoded token will appear here",
+                                                                                    children="デコードされたトークンがここに表示されます",
                                                                                     block=True,
                                                                                     style={"whiteSpace": "pre"},
                                                                                 ),
@@ -265,7 +265,7 @@ app.layout = dmc.MantineProvider(
                                                                                 type="auto",
                                                                             ),
                                                                             dmc.Divider(my="md"),
-                                                                            dmc.Text("Parsed Scopes:", size="sm", fw=500, mb="xs"),
+                                                                            dmc.Text("スコープ一覧:", size="sm", fw=500, mb="xs"),
                                                                             html.Div(id="jwt-scopes-list"),
                                                                         ],
                                                                         gap="sm",
@@ -280,7 +280,7 @@ app.layout = dmc.MantineProvider(
                                             ),
                                         ),
                                         dmc.Button(
-                                            "Run Query (OBO)",
+                                            "クエリを実行 (OBO)",
                                             id="run-query-obo",
                                             variant="outline",
                                             leftSection=get_icon(
@@ -295,8 +295,8 @@ app.layout = dmc.MantineProvider(
                                         ),
                                         dmc.Alert(
                                             id="alert-obo",
-                                            children="Status will appear here.",
-                                            title="Status",
+                                            children="ステータスがここに表示されます。",
+                                            title="ステータス",
                                             color="gray",
                                             withCloseButton=True,
                                             hide=True,
@@ -355,22 +355,19 @@ app.layout = dmc.MantineProvider(
     Input("initial-load-trigger", "children"),
 )
 def update_header_and_warehouses(_):
-    # Call fetch_warehouses() and get the results directly
     wh_options, wh_value = fetch_warehouses()
-
-    # Call fetch_sp_details() and get the result directly
     sp_name = fetch_sp_details()
 
-    header_username_display = ["User: ", dmc.Code("Unknown")]
-    obo_status_msg = "Checking OBO status..."
+    header_username_display = ["ユーザー: ", dmc.Code("不明")]
+    obo_status_msg = "OBOステータスを確認中..."
     obo_color = "gray"
-    obo_title = "Checking..."
+    obo_title = "確認中..."
     obo_disabled = True
     has_token = False
-    obo_username = ["Current user: ", html.B("Unknown")]
-    jwt_raw = "No token available"
-    jwt_decoded = "No token to decode"
-    jwt_scopes_list = dmc.Text("No scopes available", size="sm", c="dimmed")
+    obo_username = ["現在のユーザー: ", html.B("不明")]
+    jwt_raw = "トークンがありません"
+    jwt_decoded = "デコードするトークンがありません"
+    jwt_scopes_list = dmc.Text("スコープがありません", size="sm", c="dimmed")
     accordion_style = {"display": "none"}
 
     try:
@@ -380,35 +377,26 @@ def update_header_and_warehouses(_):
         username = headers.get("X-Forwarded-Preferred-Username")
         obo_token = headers.get("X-Forwarded-Access-Token")
 
-        header_username_display = username if username else "Not available"
+        header_username_display = username if username else "利用不可"
         obo_username = [
-            "Current user: ",
-            html.B(username if username else "Not available"),
+            "現在のユーザー: ",
+            html.B(username if username else "利用不可"),
         ]
 
         has_token = bool(obo_token)
         has_sql_scope = False
 
         if has_token:
-            # Show accordion when token is present
             accordion_style = {"display": "block"}
-            
-            # Store the raw JWT
             jwt_raw = obo_token
-            
-            # Try to decode the JWT
+
             try:
-                # Decode without verification (since we don't have the public key)
                 decoded_token = jwt.decode(obo_token, options={"verify_signature": False})
                 jwt_decoded = json.dumps(decoded_token, indent=2)
-                
-                # Parse scopes
+
                 scopes = decoded_token.get("scope", "").split()
-                
-                # Check if SQL scope is present
-                # Looking for scopes that contain 'sql' (case-insensitive)
                 has_sql_scope = any('sql' in scope.lower() for scope in scopes)
-                
+
                 if scopes:
                     jwt_scopes_list = dmc.List(
                         [dmc.ListItem(dmc.Code(scope)) for scope in scopes],
@@ -416,57 +404,45 @@ def update_header_and_warehouses(_):
                         spacing="xs",
                     )
                 else:
-                    jwt_scopes_list = dmc.Text("No scopes found in token", size="sm", c="dimmed")
-                    
+                    jwt_scopes_list = dmc.Text("トークンにスコープが見つかりません", size="sm", c="dimmed")
+
             except Exception as e:
-                jwt_decoded = f"Error decoding JWT: {str(e)}"
-                jwt_scopes_list = dmc.Text("Error parsing scopes", size="sm", c="red")
-            
-            # Update OBO status based on SQL scope presence
+                jwt_decoded = f"JWTデコードエラー: {str(e)}"
+                jwt_scopes_list = dmc.Text("スコープ解析エラー", size="sm", c="red")
+
             if has_sql_scope:
                 obo_status_msg = [
                     dmc.InlineCodeHighlight(code="X-Forwarded-Access-Token"),
-                    " found with SQL scope. OBO is properly configured.",
+                    " にSQLスコープが含まれています。OBOは正しく設定されています。",
                 ]
                 obo_color = "green"
-                obo_title = "OBO Configured"
+                obo_title = "OBO設定済み"
                 obo_disabled = False
             else:
                 obo_status_msg = [
                     dmc.InlineCodeHighlight(code="X-Forwarded-Access-Token"),
-                    " found but SQL scope is missing. Enable SQL auth scope for this app to use OBO.",
+                    " が見つかりましたが、SQLスコープがありません。OBOを使用するにはSQLスコープを有効にしてください。",
                 ]
                 obo_color = "orange"
-                obo_title = "SQL Scope Missing"
+                obo_title = "SQLスコープ未設定"
                 obo_disabled = True
-                
+
         else:
             obo_status_msg = [
                 dmc.InlineCodeHighlight(code="X-Forwarded-Access-Token"),
-                " header NOT found. OBO requires this header. Enable OBO for this app to proceed.",
+                " ヘッダーが見つかりません。OBOを使用するにはこのヘッダーが必要です。アプリのOBOを有効にしてください。",
             ]
             obo_color = "orange"
-            obo_title = "OBO Unavailable"
+            obo_title = "OBO利用不可"
             obo_disabled = True
 
     except Exception:
-        header_username_display = ["User: ", dmc.Code("Error")]
-        obo_status_msg = "Error loading OBO status."
+        header_username_display = ["ユーザー: ", dmc.Code("エラー")]
+        obo_status_msg = "OBOステータスの読み込みに失敗しました。"
         obo_color = "red"
-        obo_title = "Error Loading Headers"
+        obo_title = "ヘッダー読み込みエラー"
         obo_disabled = True
         has_token = False
-
-    # No longer need to read from potentially stale globals
-    # wh_options = warehouse_options
-    # wh_value = initial_warehouse_value
-
-    # --- DEBUGGING ---
-    # print("--- Callback update_header_and_warehouses ---")
-    # print(f"Warehouses being sent to dropdown ({len(wh_options)}): {wh_options}")
-    # print(f"Initial value being sent: {wh_value}")
-    # print("---------------------------------------------")
-    # --- END DEBUGGING ---
 
     return (
         header_username_display,
@@ -476,16 +452,12 @@ def update_header_and_warehouses(_):
         obo_disabled,
         {"has_token": has_token},
         obo_username,
-        # Return warehouse data and initial value
         wh_options,
         wh_value,
-        # Return SP name
         sp_name,
-        # Return JWT details
         jwt_raw,
         jwt_decoded,
         jwt_scopes_list,
-        # Return accordion visibility
         accordion_style,
     )
 
@@ -524,20 +496,19 @@ def run_sp_query_callback(n_clicks, http_path, table_name):
             [],
             [],
             [
-                "Error: Databricks SDK not configured. Check environment variables like ",
+                "エラー: Databricks SDKが設定されていません。",
                 dmc.InlineCodeHighlight(code="DATABRICKS_HOST"),
-                " etc.",
+                " などの環境変数を確認してください。",
             ],
             "red",
             False,
-            "Configuration Error",
+            "設定エラー",
             container_style,
             False,
             False,
         )
 
     loading_visible = True
-
     alert_hide = False
 
     try:
@@ -557,14 +528,14 @@ def run_sp_query_callback(n_clicks, http_path, table_name):
                 for row in data
             ]
             alert_msg = [
-                "Success! Fetched ",
-                html.B(f"{len(df)}"),
-                " rows from ",
+                "成功！サービスプリンシパルの権限で ",
                 dmc.Code(f"{table_name}"),
-                " using the service principal's permissions.",
+                " から ",
+                html.B(f"{len(df)}"),
+                " 件のデータを取得しました。",
             ]
             alert_color = "green"
-            alert_title = "Success"
+            alert_title = "成功"
             container_style = {"display": "block"}
             return (
                 data,
@@ -580,12 +551,12 @@ def run_sp_query_callback(n_clicks, http_path, table_name):
             )
         else:
             alert_msg = [
-                "Query ran successfully using Service Principal but returned no data from ",
+                "サービスプリンシパルでクエリは成功しましたが、",
                 dmc.Code(f"'{table_name}'"),
-                ".",
+                " からデータが返されませんでした。",
             ]
             alert_color = "yellow"
-            alert_title = "No Data"
+            alert_title = "データなし"
             return (
                 [],
                 [],
@@ -601,9 +572,9 @@ def run_sp_query_callback(n_clicks, http_path, table_name):
 
     except Exception as e:
         loading_visible = False
-        alert_msg = ["Error querying with Service Principal: ", dmc.Code(str(e))]
+        alert_msg = ["サービスプリンシパルでのクエリエラー: ", dmc.Code(str(e))]
         alert_color = "red"
-        alert_title = "Error"
+        alert_title = "エラー"
         return (
             [],
             [],
@@ -652,32 +623,31 @@ def run_obo_query_callback(n_clicks, http_path, table_name):
             [],
             [],
             [
-                "Error: Databricks SDK not configured. Check environment variables like ",
+                "エラー: Databricks SDKが設定されていません。",
                 dmc.InlineCodeHighlight(code="DATABRICKS_HOST"),
-                " etc.",
+                " などの環境変数を確認してください。",
             ],
             "red",
             False,
-            "Configuration Error",
+            "設定エラー",
             container_style,
             False,
             False,
         )
 
     loading_visible = True
-
     alert_hide = False
 
     try:
         user_token = get_user_token()
         if not user_token:
             alert_msg = [
-                "Error: ",
+                "エラー: ",
                 dmc.InlineCodeHighlight(code="X-Forwarded-Access-Token"),
-                " not found in this request's headers. Cannot run OBO query. Ensure OBO is enabled for the App.",
+                " がリクエストヘッダーに見つかりません。OBOクエリを実行できません。アプリのOBOが有効になっているか確認してください。",
             ]
             alert_color = "red"
-            alert_title = "OBO Token Missing"
+            alert_title = "OBOトークン未検出"
             loading_visible = False
             return (
                 [],
@@ -708,14 +678,14 @@ def run_obo_query_callback(n_clicks, http_path, table_name):
                 for row in data
             ]
             alert_msg = [
-                "Success! Fetched ",
-                html.B(f"{len(df)}"),
-                " rows from ",
+                "成功！OBO認証で ",
                 dmc.Code(f"{table_name}"),
-                " using OBO authorization.",
+                " から ",
+                html.B(f"{len(df)}"),
+                " 件のデータを取得しました。",
             ]
             alert_color = "green"
-            alert_title = "Success"
+            alert_title = "成功"
             container_style = {"display": "block"}
             return (
                 data,
@@ -731,12 +701,12 @@ def run_obo_query_callback(n_clicks, http_path, table_name):
             )
         else:
             alert_msg = [
-                "OBO Query ran successfully but returned no data from ",
+                "OBOクエリは成功しましたが、",
                 dmc.Code(f"'{table_name}'"),
-                ".",
+                " からデータが返されませんでした。",
             ]
             alert_color = "yellow"
-            alert_title = "No Data"
+            alert_title = "データなし"
             return (
                 [],
                 [],
@@ -752,21 +722,21 @@ def run_obo_query_callback(n_clicks, http_path, table_name):
 
     except Exception as e:
         loading_visible = False
-        alert_msg_base = ["Error querying with OBO: ", dmc.Code(str(e))]
+        alert_msg_base = ["OBOでのクエリエラー: ", dmc.Code(str(e))]
         alert_color = "red"
-        alert_title = "Error"
+        alert_title = "エラー"
         if (
             "PERMISSION_DENIED" in str(e).upper()
             or "DOES NOT HAVE PRIVILEGE" in str(e).upper()
         ):
             alert_msg = alert_msg_base + [
-                " | Check if the user has SELECT permissions on the table and USE on the warehouse/catalog/schema."
+                " | ユーザーがテーブルへのSELECT権限およびウェアハウス/カタログ/スキーマへのUSE権限を持っているか確認してください。"
             ]
         elif "OBO token not found" in str(e):
             alert_msg = [
-                "Error: OBO token missing ( ",
+                "エラー: OBOトークン（",
                 dmc.InlineCodeHighlight(code="X-Forwarded-Access-Token"),
-                " ). Ensure OBO is enabled for this App and you are accessing it through Databricks.",
+                "）が見つかりません。このアプリのOBOが有効になっており、Databricks経由でアクセスしているか確認してください。",
             ]
         else:
             alert_msg = alert_msg_base

@@ -1,68 +1,77 @@
-# Databricks Apps: Service Principal and OBO Authorization Demo
+# Databricks Apps: サービスプリンシパルとOBO認証デモ
 
-This code sample demonstrates how to use different authorization methods within a [Databricks App](https://docs.databricks.com/en/dev-tools/databricks-apps/index.html) to query data from a Databricks SQL Warehouse via Unity Catalog.
+このサンプルアプリは、[Databricks Apps](https://docs.databricks.com/en/dev-tools/databricks-apps/index.html) 上でUnity Catalog経由のDatabricks SQLウェアハウスに対してクエリを実行する際の、2種類の認証方式を比較・デモするアプリケーションです。
 
-It showcases two authorization patterns:
+## 認証方式の比較
 
-1.  **Service Principal (SP) Authorization:** Uses the app's own configured Service Principal credentials (via `DATABRICKS_CLIENT_ID` and `DATABRICKS_CLIENT_SECRET`) to connect and run queries.
-2.  **On-Behalf-Of (OBO) Authorization:** Uses the accessing user's identity by leveraging the `X-Forwarded-Access-Token` header provided by Databricks when OBO is enabled for the app.
+1. **サービスプリンシパル (SP) 認証**  
+   アプリ自身のSP認証情報（`DATABRICKS_CLIENT_ID` および `DATABRICKS_CLIENT_SECRET`）を使用してクエリを実行します。列マスキングポリシーが適用される場合、SPにはマスクされたデータが返されます。
 
-![Databricks Apps: Service Principal and OBO Authorization Demo](assets/screenshot.png "Databricks Apps: Service Principal and OBO Authorization Demo")
+2. **ユーザー代理認証 (OBO: On-Behalf-Of)**  
+   Databricksが提供する `X-Forwarded-Access-Token` ヘッダーを通じて、アクセスするユーザーのIDでクエリを実行します。ユーザーが適切な権限を持っている場合、列マスキングが適用されず実データが返されます。
 
-## Deploying as a Databricks App
+## デモデータについて
 
-1. Load this GitHub repository as a [Databricks Git folder](https://docs.databricks.com/en/repos/index.html) in your Databricks workspace.
-1. In your Databricks workspace, switch to **Compute** -> **Apps**.
-1. Choose **Create app**.
-1. Under **Choose how to start**, select **Custom** and choose **Next**.
-1. Input a name for your app.
-1. Under **Advanced settings**, make sure to enable the SQL auth scope by ticking the box next to **Allow the app to execute SQL and manage SQL related resources in Databricks**.
-1. Choose **Create app**.
-1. Once your app compute has started, choose **Deploy**.
-1. Navigate to your new Git folder and select the `auth-demo` folder.
-1. Choose **Deploy**.
+デモテーブル `ytcy_azure_east2classic_stable.auth_demo.demo_users` には、日本語の社員情報（氏名・メールアドレス・部署・役職・入社年度・給与）が格納されています。
 
-## Running Locally
+**列マスキングポリシー**: `メールアドレス` 列にはサービスプリンシパル用のマスキングポリシーが設定されています。
+- **SP認証でクエリを実行**すると、メールアドレスがマスクされた状態で返されます（例: `ta****@****.co.jp`）。
+- **OBO認証でクエリを実行**すると、ログインユーザーの権限でアクセスするため、実際のメールアドレスが表示されます。
 
-1. Clone this repo to your local machine and switch into the `auth-demo` folder:
+![Databricks Apps: サービスプリンシパルとOBO認証デモ](assets/screenshot.png "Databricks Apps: サービスプリンシパルとOBO認証デモ")
+
+## Databricks Appとしてデプロイする手順
+
+1. このGitHubリポジトリをDatabricksワークスペースの[Gitフォルダ](https://docs.databricks.com/en/repos/index.html)として読み込みます。
+2. Databricksワークスペースで **コンピュート** → **アプリ** に移動します。
+3. **アプリの作成** を選択します。
+4. **開始方法を選択** で **カスタム** を選び、**次へ** をクリックします。
+5. アプリの名前を入力します。
+6. **詳細設定** で、**アプリがDatabricksのSQLリソースを実行・管理できるようにする** にチェックを入れてSQLスコープを有効化します。
+7. **アプリの作成** をクリックします。
+8. アプリのコンピュートが起動したら **デプロイ** を選択します。
+9. Gitフォルダに移動し、`auth-demo` フォルダを選択します。
+10. **デプロイ** をクリックします。
+
+## ローカルで実行する手順
+
+1. リポジトリをクローンして `auth-demo` フォルダに移動します:
    ```bash
-   git clone https://github.com/databricks-solutions/databricks-apps-examples.git
+   git clone https://github.com/ytsuchiya-work/databricks-apps-examples.git
    cd databricks-apps-examples/auth-demo
    ```
-1. Install [uv](https://docs.astral.sh/uv/) if you haven't already.
-1. Install the [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/index.html) and authenticate with your Databricks workspace using [OAuth U2M](https://docs.databricks.com/en/dev-tools/auth/oauth-u2m.html), for example:
+2. [uv](https://docs.astral.sh/uv/) をインストールします（未インストールの場合）。
+3. [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/index.html) をインストールし、[OAuth U2M](https://docs.databricks.com/en/dev-tools/auth/oauth-u2m.html) でワークスペースに認証します:
    ```bash
-   databricks auth login --host https://my-workspace.cloud.databricks.com/
+   databricks auth login --host https://adb-7405605463330453.13.azuredatabricks.net/
    ```
-1. Run the app (uv will automatically create a virtual environment and install dependencies):
+4. アプリを起動します（uvが自動的に仮想環境を作成して依存パッケージをインストールします）:
    ```bash
    uv run python app.py
    ```
 
 > [!NOTE]
 >
-> - When running locally, on-behalf-of-user authorization will not work due to the missing `X-Forwarded-Access-Token` header.
-> - The service principal authorization section of the app will instead use your user credentials as configured with the CLI.
+> - ローカル実行時は `X-Forwarded-Access-Token` ヘッダーが存在しないため、OBO認証は動作しません。
+> - SP認証セクションでは、CLIで設定したユーザー認証情報が使用されます。
 
 ---
 
-&copy; 2025 Databricks, Inc. All rights reserved. The source in this repository is provided subject to the Databricks License [https://databricks.com/db-license-source]. All included or referenced third party libraries are subject to the licenses set forth below.
+&copy; 2025 Databricks, Inc. All rights reserved. The source in this repository is provided subject to the Databricks License [https://databricks.com/db-license-source].
 
-| library                  | description                                        | license      | source                                              |
+| ライブラリ               | 説明                                               | ライセンス    | ソース                                              |
 | ------------------------ | -------------------------------------------------- | ------------ | --------------------------------------------------- |
-| dash                     | Framework for building analytical web applications | MIT          | https://github.com/plotly/dash                      |
-| dash-iconify             | Icon components for Dash apps                      | MIT          | https://github.com/snehilvj/dash-iconify            |
-| dash_mantine_components  | Mantine components for Dash                        | MIT          | https://github.com/snehilvj/dash-mantine-components |
-| databricks-sdk           | Databricks SDK for Python                          | Apache 2.0   | https://github.com/databricks/databricks-sdk-py     |
+| dash                     | 分析用Webアプリケーションフレームワーク             | MIT          | https://github.com/plotly/dash                      |
+| dash-iconify             | Dashアプリ向けアイコンコンポーネント               | MIT          | https://github.com/snehilvj/dash-iconify            |
+| dash_mantine_components  | DashのManineコンポーネント                         | MIT          | https://github.com/snehilvj/dash-mantine-components |
+| databricks-sdk           | Databricks Python SDK                              | Apache 2.0   | https://github.com/databricks/databricks-sdk-py     |
 | databricks-sql-connector | Databricks SQL Connector for Python                | Apache 2.0   | https://github.com/databricks/databricks-sql-python |
-| Flask                    | Lightweight WSGI web application framework         | BSD 3-Clause | https://github.com/pallets/flask                    |
-| pandas                   | Data analysis and manipulation library             | BSD 3-Clause | https://github.com/pandas-dev/pandas                |
-| pyarrow                  | Python library for Apache Arrow                    | Apache 2.0   | https://github.com/apache/arrow/tree/main/python    |
-
-Databricks support doesn't cover this content. For questions or bugs, please open a github issue and the team will help on a best effort basis.
+| Flask                    | 軽量WSGIウェブアプリケーションフレームワーク       | BSD 3-Clause | https://github.com/pallets/flask                    |
+| pandas                   | データ分析・操作ライブラリ                         | BSD 3-Clause | https://github.com/pandas-dev/pandas                |
+| pyarrow                  | Apache Arrow Python ライブラリ                     | Apache 2.0   | https://github.com/apache/arrow/tree/main/python    |
 
 ---
 
-## Questions and issues
+## 質問・問題について
 
-Please file an issue on this repository when and if you run into errors with the deployed applications. Thanks!
+エラーが発生した場合はこのリポジトリにIssueを作成してください。
