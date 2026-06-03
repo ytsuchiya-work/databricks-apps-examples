@@ -55,6 +55,29 @@
 > - ローカル実行時は `X-Forwarded-Access-Token` ヘッダーが存在しないため、OBO認証は動作しません。
 > - SP認証セクションでは、CLIで設定したユーザー認証情報が使用されます。
 
+## トラブルシューティング
+
+### SP認証実行時: `INSUFFICIENT_PERMISSIONS` - USE SCHEMA 権限エラー
+
+**エラー内容:**
+```
+[INSUFFICIENT_PERMISSIONS] Insufficient privileges: User does not have USE SCHEMA
+on Schema 'ytcy_azure_east2classic_stable.auth_demo'. SQLSTATE: 42501
+```
+
+**原因:**  
+アプリのサービスプリンシパルにUnity Catalogの権限が付与されていないために発生します。Databricks Appsは専用のSPを自動生成しますが、そのSPへのデータアクセス権限は別途手動で付与する必要があります。
+
+**解決策:**  
+アプリのSP（アプリ詳細画面で確認可能）に対して以下のGRANT文を実行してください（`<sp-client-id>` はアプリのSPのクライアントIDに置き換えてください）:
+
+```sql
+GRANT USE CATALOG ON CATALOG ytcy_azure_east2classic_stable TO `<sp-client-id>`;
+GRANT USE SCHEMA ON SCHEMA ytcy_azure_east2classic_stable.auth_demo TO `<sp-client-id>`;
+GRANT SELECT ON TABLE ytcy_azure_east2classic_stable.auth_demo.demo_users TO `<sp-client-id>`;
+GRANT EXECUTE ON FUNCTION ytcy_azure_east2classic_stable.auth_demo.email_mask TO `<sp-client-id>`;
+```
+
 ---
 
 &copy; 2025 Databricks, Inc. All rights reserved. The source in this repository is provided subject to the Databricks License [https://databricks.com/db-license-source].
